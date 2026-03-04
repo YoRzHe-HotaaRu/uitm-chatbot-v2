@@ -1,0 +1,297 @@
+<!DOCTYPE html>
+<html lang="ms">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Penerima AI UITM - Universiti Teknologi MARA</title>
+    
+    <!-- Google Fonts - Space Grotesk for geometric Swedish feel -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+    
+    <!-- Lucide Icons -->
+    <script src="https://unpkg.com/lucide@latest"></script>
+    
+    <!-- Stylesheet -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/styles.css') }}">
+</head>
+<body>
+    <!-- Header -->
+    <header class="header">
+        <div class="header-content">
+            <div class="logo-section">
+                <div class="logo-icon">
+                    <i data-lucide="graduation-cap"></i>
+                </div>
+                <div class="logo-text">
+                    <h1>UITM</h1>
+                    <span>Universiti Teknologi MARA</span>
+                </div>
+            </div>
+            <div class="header-title">
+                <h2>Penerima AI</h2>
+                <span>Asisten Maya Rasmi</span>
+            </div>
+            <button class="theme-toggle" id="themeToggle" aria-label="Tukar tema">
+                <i data-lucide="sun" class="light-icon"></i>
+                <i data-lucide="moon" class="dark-icon"></i>
+            </button>
+        </div>
+    </header>
+
+    <!-- Main Container -->
+    <main class="main-container">
+        <!-- Quick Access Panel -->
+        <aside class="quick-access-panel" id="quickAccessPanel">
+            <div class="panel-header">
+                <i data-lucide="grid-3x3"></i>
+                <h3>Akses Pantas</h3>
+            </div>
+            
+            <div class="quick-access-grid">
+                <!-- Maklumat Am -->
+                <div class="category-section">
+                    <h4 class="category-title">
+                        <i data-lucide="info"></i>
+                        Maklumat Am
+                    </h4>
+                    <div class="items-row">
+                        <button class="quick-item" data-question="Apa itu UITM?">
+                            <i data-lucide="building-2"></i>
+                            <span>Apa itu UITM?</span>
+                        </button>
+                        <button class="quick-item" data-question="Sejarah UITM">
+                            <i data-lucide="history"></i>
+                            <span>Sejarah UITM</span>
+                        </button>
+                        <button class="quick-item" data-question="Lokasi kampus UITM">
+                            <i data-lucide="map-pin"></i>
+                            <span>Lokasi Kampus</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Kemasukan -->
+                <div class="category-section">
+                    <h4 class="category-title">
+                        <i data-lucide="door-open"></i>
+                        Kemasukan
+                    </h4>
+                    <div class="items-row">
+                        <button class="quick-item" data-question="Syarat kemasukan UITM">
+                            <i data-lucide="clipboard-check"></i>
+                            <span>Syarat Kemasukan</span>
+                        </button>
+                        <button class="quick-item" data-question="Cara memohon UITM">
+                            <i data-lucide="file-text"></i>
+                            <span>Cara Memohon</span>
+                        </button>
+                        <button class="quick-item" data-question="Yuran pengajian UITM">
+                            <i data-lucide="credit-card"></i>
+                            <span>Yuran Pengajian</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Program -->
+                <div class="category-section">
+                    <h4 class="category-title">
+                        <i data-lucide="book-open"></i>
+                        Program
+                    </h4>
+                    <div class="items-row">
+                        <button class="quick-item" data-question="Program Diploma UITM">
+                            <i data-lucide="award"></i>
+                            <span>Program Diploma</span>
+                        </button>
+                        <button class="quick-item" data-question="Program Ijazah UITM">
+                            <i data-lucide="graduation-cap"></i>
+                            <span>Program Ijazah</span>
+                        </button>
+                        <button class="quick-item" data-question="Program Pascasiswazah UITM">
+                            <i data-lucide="microscope"></i>
+                            <span>Pascasiswazah</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Kemudahan -->
+                <div class="category-section">
+                    <h4 class="category-title">
+                        <i data-lucide="home"></i>
+                        Kemudahan
+                    </h4>
+                    <div class="items-row">
+                        <button class="quick-item" data-question="Perpustakaan UITM">
+                            <i data-lucide="library"></i>
+                            <span>Perpustakaan</span>
+                        </button>
+                        <button class="quick-item" data-question="Asrama UITM">
+                            <i data-lucide="bed"></i>
+                            <span>Asrama</span>
+                        </button>
+                        <button class="quick-item" data-question="Kemudahan sukan UITM">
+                            <i data-lucide="dumbbell"></i>
+                            <span>Sukan & Rekreasi</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Hubungi -->
+                <div class="category-section">
+                    <h4 class="category-title">
+                        <i data-lucide="phone"></i>
+                        Hubungi
+                    </h4>
+                    <div class="items-row">
+                        <button class="quick-item" data-question="Nombor telefon UITM">
+                            <i data-lucide="phone-call"></i>
+                            <span>Nombor Telefon</span>
+                        </button>
+                        <button class="quick-item" data-question="Email rasmi UITM">
+                            <i data-lucide="mail"></i>
+                            <span>Email Rasmi</span>
+                        </button>
+                        <button class="quick-item" data-question="Waktu pejabat UITM">
+                            <i data-lucide="clock"></i>
+                            <span>Waktu Pejabat</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Bantuan -->
+                <div class="category-section">
+                    <h4 class="category-title">
+                        <i data-lucide="help-circle"></i>
+                        Bantuan
+                    </h4>
+                    <div class="items-row">
+                        <button class="quick-item" data-question="Bantuan teknikal UITM">
+                            <i data-lucide="wrench"></i>
+                            <span>Bantuan Teknikal</span>
+                        </button>
+                        <button class="quick-item" data-question="Soalan lazim UITM">
+                            <i data-lucide="message-circle-question"></i>
+                            <span>Soalan Lazim</span>
+                        </button>
+                        <button class="quick-item" data-question="Hubungi kaunseling UITM">
+                            <i data-lucide="heart-handshake"></i>
+                            <span>Kaunseling</span>
+                        </button>
+                    </div>
+                </div>
+            </div>
+        </aside>
+
+        <!-- Chat Interface Panel -->
+        <section class="chat-panel" id="chatPanel">
+            <div class="chat-container">
+                <!-- Messages Area -->
+                <div class="messages-area" id="messagesArea">
+                    <!-- Welcome Message -->
+                    <div class="message ai-message">
+                        <div class="message-avatar">
+                            <i data-lucide="bot"></i>
+                        </div>
+                        <div class="message-content">
+                            <div class="message-header">
+                                <span class="sender-name">Penerima AI UITM</span>
+                                <span class="timestamp" id="welcomeTime"></span>
+                            </div>
+                            <div class="message-text">
+                                <p>Assalamualaikum dan selamat datang! 👋</p>
+                                <p>Saya adalah Penerima AI rasmi Universiti Teknologi MARA. Saya sedia membantu anda dengan maklumat mengenai:</p>
+                                <ul>
+                                    <li>Kemasukan dan pendaftaran</li>
+                                    <li>Program pengajian</li>
+                                    <li>Kemudahan kampus</li>
+                                    <li>Hubungan dan lokasi</li>
+                                </ul>
+                                <p>Bagaimana saya boleh membantu anda hari ini?</p>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Typing Indicator (Hidden by default) -->
+                <div class="typing-indicator" id="typingIndicator" style="display: none;">
+                    <div class="typing-content">
+                        <div class="typing-avatar">
+                            <i data-lucide="bot"></i>
+                        </div>
+                        <div class="typing-body">
+                            <div class="typing-header">
+                                <span class="sender-name">Penerima AI UITM</span>
+                                <span class="typing-text">Sedang menaip...</span>
+                            </div>
+                            
+                            <!-- Live Reasoning Display (Minimized by default) -->
+                            <div class="reasoning-container minimized" id="liveReasoningContainer">
+                                <button class="reasoning-toggle" id="liveReasoningToggle">
+                                    <i data-lucide="brain-circuit"></i>
+                                    <span>AI sedang berfikir...</span>
+                                    <i data-lucide="chevron-down" class="toggle-icon"></i>
+                                </button>
+                                <div class="reasoning-content" id="liveReasoningContent">
+                                    <div class="reasoning-text" id="liveReasoningText"></div>
+                                </div>
+                            </div>
+                            
+                            <div class="typing-animation">
+                                <span></span>
+                                <span></span>
+                                <span></span>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Input Area -->
+                <div class="input-area">
+                    <div class="input-container">
+                        <textarea 
+                            id="messageInput" 
+                            placeholder="Taip mesej anda di sini..." 
+                            rows="1"
+                            maxlength="2000"
+                        ></textarea>
+                        <button class="send-button" id="sendButton" aria-label="Hantar mesej">
+                            <i data-lucide="send"></i>
+                        </button>
+                    </div>
+                    <div class="input-footer">
+                        <span class="char-count" id="charCount">0 / 2000</span>
+                        <span class="shortcut-hint">Tekan Enter untuk hantar, Shift+Enter untuk baris baru</span>
+                    </div>
+                </div>
+            </div>
+        </section>
+    </main>
+
+    <!-- Mobile Panel Toggle (Bottom) -->
+    <nav class="mobile-toggle" id="mobileToggle">
+        <button class="toggle-btn active" data-panel="quick" id="quickToggleBtn">
+            <i data-lucide="grid-3x3"></i>
+            <span>Akses Pantas</span>
+        </button>
+        <div class="toggle-divider"></div>
+        <button class="toggle-btn" data-panel="chat" id="chatToggleBtn">
+            <i data-lucide="message-square"></i>
+            <span>Sembang</span>
+        </button>
+    </nav>
+
+    <!-- Footer -->
+    <footer class="footer">
+        <p>© 2025 Universiti Teknologi MARA. Hak Cipta Terpelihara.</p>
+        <p class="footer-moto">Usaha • Taqwa • Mulia</p>
+    </footer>
+
+    <!-- Initialize Lucide Icons -->
+    <script>lucide.createIcons();</script>
+    
+    <!-- Main JavaScript -->
+    <script src="{{ url_for('static', filename='js/app.js') }}"></script>
+</body>
+</html>
