@@ -381,9 +381,15 @@ function hideTypingIndicator() {
 function updateLiveReasoning(reasoning) {
     state.currentReasoning = reasoning;
     elements.liveReasoningText.textContent = reasoning;
-    
-    // Auto-scroll reasoning content
-    elements.liveReasoningContent.scrollTop = elements.liveReasoningContent.scrollHeight;
+
+    // Auto-scroll after DOM update
+    requestAnimationFrame(() => {
+        // Scroll the reasoning content to show latest thoughts
+        elements.liveReasoningContent.scrollTo({
+            top: elements.liveReasoningContent.scrollHeight,
+            behavior: 'auto'
+        });
+    });
 }
 
 function updateLiveContent(content) {

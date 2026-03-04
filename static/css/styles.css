@@ -590,8 +590,6 @@ p {
 
 #liveReasoningContainer .reasoning-text {
     font-size: 0.8rem;
-    max-height: 100px;
-    overflow-y: auto;
 }
 
 #liveReasoningContainer.minimized .reasoning-content {
