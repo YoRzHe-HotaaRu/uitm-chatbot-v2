@@ -1022,6 +1022,11 @@ p {
         width: 100%;
         text-align: left;
     }
+    
+    .theme-toggle {
+        order: 4;
+        margin-left: auto;
+    }
 }
 
 /* Mobile (< 768px) */
