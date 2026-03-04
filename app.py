@@ -109,6 +109,33 @@ Garis panduan penggunaan konteks:
 [/KONTEKS]
 """
 
+# Creator information configuration
+CREATOR_INFO = {
+    "name": "Ts. Zaaba Bin Ahmad",
+    "title": "Pencipta AI Receptionist UITM",
+    "image_path": "/static/assets/Zaaba-Ahmad.webp",
+    "google_scholar": "https://scholar.google.com/citations?user=PGhzO-oAAAAJ&hl=en",
+    "description": "AI ini dicipta oleh **Ts. Zaaba Bin Ahmad**. Beliau adalah seorang pensyarah dan penyelidik di UITM yang mengkhusus dalam pembangunan sistem pintar dan aplikasi berasaskan AI.",
+    "triggers": [
+        # Malay triggers
+        "siapa pencipta", "siapa pembangun", "siapa yang buat", "siapa yang cipta",
+        "siapa yang bina", "siapa owner", "siapa tuan", "pencipta ai",
+        "pembangun ai", "siapa zaaba", "ts zaaba", "zaaba ahmad",
+        # English triggers
+        "who created you", "who is your creator", "who built you",
+        "who made you", "who developed you", "your creator",
+        "who is zaaba", "ts zaaba", "zaaba ahmad"
+    ]
+}
+
+
+def detect_creator_question(query):
+    """Detect if user is asking about the creator"""
+    if not query:
+        return False
+    query_lower = query.lower()
+    return any(trigger in query_lower for trigger in CREATOR_INFO["triggers"])
+
 
 def get_last_user_query(messages):
     """Extract the last user message from the conversation"""
@@ -163,8 +190,47 @@ def chat():
     if not OPENROUTER_API_KEY:
         return jsonify({'error': 'OpenRouter API key not configured'}), 500
     
-    # Get the user's last query for RAG
+    # Get the user's last query
     user_query = get_last_user_query(messages)
+    
+    # Check if user is asking about the creator
+    if detect_creator_question(user_query):
+        # Return structured response with creator info and image
+        creator_response = {
+            'type': 'creator_info',
+            'content': CREATOR_INFO["description"],
+            'image': {
+                'url': CREATOR_INFO["image_path"],
+                'alt': f"{CREATOR_INFO['name']} - {CREATOR_INFO['title']}",
+                'title': CREATOR_INFO['name']
+            },
+            'links': [
+                {
+                    'text': 'Profil Google Scholar',
+                    'url': CREATOR_INFO["google_scholar"],
+                    'icon': 'external-link'
+                }
+            ],
+            'role': 'assistant'
+        }
+        
+        if stream_requested:
+            # Return streaming format for creator info
+            def generate_creator_response():
+                # Send the response as a single chunk
+                yield f'data: {json.dumps({"choices": [{"delta": {"content": json.dumps(creator_response)}}]})}\n\n'
+                yield 'data: [DONE]\n\n'
+            
+            return Response(
+                stream_with_context(generate_creator_response()),
+                mimetype='text/plain',
+                headers={
+                    'Cache-Control': 'no-cache',
+                    'X-Accel-Buffering': 'no'
+                }
+            )
+        else:
+            return jsonify(creator_response)
     
     # Retrieve context using RAG if enabled
     retrieved_context = ''

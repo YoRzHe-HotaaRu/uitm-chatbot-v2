@@ -16,6 +16,7 @@ const state = {
     currentReasoning: '',
     currentContent: '',
     ragUsed: false,
+    structuredResponse: null, // For special responses like creator info
 
     // Audio recording state (for OpenRouter multimodal)
     audio: {
@@ -311,12 +312,59 @@ function handleQuickQuestion(question) {
     setTimeout(() => sendMessage(), 300);
 }
 
-function addMessage(role, content, reasoning = null, ragUsed = false) {
+function addMessage(role, content, reasoning = null, ragUsed = false, imageData = null, isVoice = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}-message`;
     
     const timestamp = formatTime(new Date());
     const isAI = role === 'assistant';
+    
+    // Build image HTML if present
+    let imageHTML = '';
+    if (imageData) {
+        // Support both direct links in imageData or nested links array
+        const links = imageData.links || (imageData._links ? [imageData._links] : []);
+        const linksHTML = links.length > 0 ? links.map(link => `
+            <a href="${link.url}" target="_blank" rel="noopener" class="creator-link">
+                <i data-lucide="${link.icon || 'external-link'}"></i>
+                <span>${link.text}</span>
+            </a>
+        `).join('') : '';
+        
+        imageHTML = `
+            <div class="creator-card">
+                <div class="creator-image-wrapper">
+                    <img src="${imageData.url}"
+                         alt="${imageData.alt || ''}"
+                         class="creator-image"
+                         loading="lazy">
+                </div>
+                <div class="creator-info">
+                    <h4 class="creator-name">${imageData.title || ''}</h4>
+                    ${linksHTML ? `<div class="creator-links">${linksHTML}</div>` : ''}
+                </div>
+            </div>
+        `;
+    }
+    
+    // Build voice visualizer HTML if it's a voice message
+    let contentHTML = '';
+    if (isVoice) {
+        contentHTML = `
+            <div class="voice-message-indicator">
+                <div class="voice-wave">
+                    <span class="voice-bar"></span>
+                    <span class="voice-bar"></span>
+                    <span class="voice-bar"></span>
+                    <span class="voice-bar"></span>
+                    <span class="voice-bar"></span>
+                </div>
+                <span class="voice-label">Mesej Suara</span>
+            </div>
+        `;
+    } else {
+        contentHTML = formatMessageContent(content);
+    }
     
     messageDiv.innerHTML = `
         <div class="message-avatar">
@@ -330,9 +378,10 @@ function addMessage(role, content, reasoning = null, ragUsed = false) {
                     <span class="timestamp">${timestamp}</span>
                 </div>
             </div>
-            <div class="message-text">
-                ${formatMessageContent(content)}
+            <div class="message-text ${isVoice ? 'voice-message-text' : ''}">
+                ${contentHTML}
             </div>
+            ${imageHTML}
             ${reasoning ? createReasoningHTML(reasoning) : ''}
         </div>
     `;
@@ -547,12 +596,50 @@ function processStreamData(data) {
     
     // Handle content (actual response)
     if (delta.content) {
+        // Check if this is a special structured response (e.g., creator info)
+        try {
+            const parsed = JSON.parse(delta.content);
+            if (parsed.type === 'creator_info') {
+                // Store as structured data for finalizeResponse
+                state.structuredResponse = parsed;
+                return;
+            }
+        } catch (e) {
+            // Not JSON, treat as regular content
+        }
         updateLiveContent(state.currentContent + delta.content);
     }
 }
 
 function finalizeResponse() {
     hideTypingIndicator();
+    
+    // Handle structured response (e.g., creator info with image)
+    if (state.structuredResponse) {
+        const response = state.structuredResponse;
+        
+        // Combine image data with links
+        const imageData = {
+            ...response.image,
+            links: response.links || []
+        };
+        
+        addMessage('assistant', response.content, null, false, imageData);
+        
+        // Save to state
+        state.messages.push({
+            role: 'assistant',
+            content: response.content,
+            reasoning: null,
+            ragUsed: false,
+            image: imageData
+        });
+        
+        // Reset structured response
+        state.structuredResponse = null;
+        state.ragUsed = false;
+        return;
+    }
     
     // Add the complete AI message
     if (state.currentContent || state.currentReasoning) {
@@ -844,8 +931,8 @@ async function sendAudioMessage(base64Audio) {
     // Disable input while sending
     elements.sendButton.disabled = true;
 
-    // Add user message to UI
-    addMessage('user', '[Mesej Suara]', null);
+    // Add user message to UI with voice indicator
+    addMessage('user', '[Mesej Suara]', null, false, null, true);
 
     // Prepare multimodal message
     const multimodalMessage = {
