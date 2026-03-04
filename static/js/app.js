@@ -12,19 +12,23 @@ const state = {
     isTyping: false,
     currentPanel: 'quick', // 'quick' or 'chat' (for mobile)
     theme: localStorage.getItem('uitm-theme') || 'light',
-    model: 'deepseek/deepseek-v3.2',
+    model: 'google/gemini-3.1-flash-lite-preview',
     currentReasoning: '',
     currentContent: '',
 
-    // Voice input state
-    voice: {
+    // Audio recording state (for OpenRouter multimodal)
+    audio: {
         isRecording: false,
-        recognition: null,
-        silenceTimer: null,
-        transcript: '',
-        silenceThreshold: 5000, // 5 seconds
-        isSupported: false,
-        errorHandled: false
+        mediaRecorder: null,
+        audioChunks: [],
+        stream: null,
+        selectedDevice: localStorage.getItem('uitm-selected-mic') || null,
+        format: 'webm'
+    },
+
+    // Settings modal state
+    settings: {
+        isOpen: false
     }
 };
 
@@ -33,8 +37,15 @@ const state = {
 // ========================================
 
 const elements = {
-    // Theme
-    themeToggle: document.getElementById('themeToggle'),
+    // Settings
+    settingsToggle: document.getElementById('settingsToggle'),
+    settingsModal: document.getElementById('settingsModal'),
+    settingsOverlay: document.getElementById('settingsOverlay'),
+    closeSettings: document.getElementById('closeSettings'),
+    themeLight: document.getElementById('themeLight'),
+    themeDark: document.getElementById('themeDark'),
+    microphoneSelect: document.getElementById('microphoneSelect'),
+    testMicBtn: document.getElementById('testMicBtn'),
     html: document.documentElement,
     
     // Panels
@@ -99,8 +110,11 @@ function initializeApp() {
         elements.messageInput.focus();
     }
 
-    // Initialize voice input
-    initializeVoiceInput();
+    // Initialize settings
+    initializeSettings();
+
+    // Initialize audio devices
+    initializeAudioDevices();
 }
 
 // ========================================
@@ -108,8 +122,18 @@ function initializeApp() {
 // ========================================
 
 function setupEventListeners() {
-    // Theme toggle
-    elements.themeToggle.addEventListener('click', toggleTheme);
+    // Settings modal
+    elements.settingsToggle.addEventListener('click', toggleSettingsModal);
+    elements.closeSettings.addEventListener('click', toggleSettingsModal);
+    elements.settingsOverlay.addEventListener('click', toggleSettingsModal);
+
+    // Theme options in settings
+    elements.themeLight.addEventListener('click', () => setTheme('light'));
+    elements.themeDark.addEventListener('click', () => setTheme('dark'));
+
+    // Microphone selection
+    elements.microphoneSelect.addEventListener('change', handleMicrophoneSelect);
+    elements.testMicBtn.addEventListener('click', testMicrophone);
     
     // Mobile panel toggles
     elements.quickToggleBtn.addEventListener('click', () => switchPanel('quick'));
@@ -135,7 +159,13 @@ function setupEventListeners() {
     });
 
     // Voice input toggle
-    elements.micButton.addEventListener('click', toggleVoiceInput);
+    elements.micButton.addEventListener('click', () => {
+        if (state.audio.isRecording) {
+            stopAudioRecording();
+        } else {
+            startAudioRecording();
+        }
+    });
     
     // Window resize
     window.addEventListener('resize', handleResize);
@@ -551,178 +581,338 @@ function addErrorMessage(message) {
 // ========================================
 
 // ========================================
-// VOICE INPUT MODULE
+// SETTINGS MODULE
 // ========================================
 
-function initializeVoiceInput() {
-    // Check browser support
-    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+function initializeSettings() {
+    // Update theme buttons state
+    updateThemeButtons();
+}
 
-    if (!SpeechRecognition) {
-        console.log('Speech recognition not supported');
-        elements.micButton.style.display = 'none';
+function toggleSettingsModal() {
+    state.settings.isOpen = !state.settings.isOpen;
+    elements.settingsModal.classList.toggle('open', state.settings.isOpen);
+
+    if (state.settings.isOpen) {
+        // Refresh mic list when opening
+        populateMicrophoneList();
+        updateThemeButtons();
+    }
+}
+
+function updateThemeButtons() {
+    // Update active state of theme buttons
+    elements.themeLight.classList.toggle('active', state.theme === 'light');
+    elements.themeDark.classList.toggle('active', state.theme === 'dark');
+}
+
+// Override setTheme to also update buttons
+const originalSetTheme = setTheme;
+setTheme = function(theme) {
+    originalSetTheme(theme);
+    updateThemeButtons();
+};
+
+// ========================================
+// AUDIO DEVICES MODULE
+// ========================================
+
+async function initializeAudioDevices() {
+    try {
+        // Request permission to access microphones
+        await navigator.mediaDevices.getUserMedia({ audio: true });
+
+        // Populate the microphone list
+        await populateMicrophoneList();
+    } catch (error) {
+        console.log('Microphone permission not granted or not available:', error);
+        elements.microphoneSelect.innerHTML = '<option value="">Tiada kebenaran mikrofon</option>';
+    }
+}
+
+async function populateMicrophoneList() {
+    try {
+        const devices = await navigator.mediaDevices.enumerateDevices();
+        const audioInputs = devices.filter(device => device.kind === 'audioinput');
+
+        // Clear current options
+        elements.microphoneSelect.innerHTML = '<option value="">Pilih mikrofon...</option>';
+
+        // Add devices
+        audioInputs.forEach((device, index) => {
+            const option = document.createElement('option');
+            option.value = device.deviceId;
+            option.textContent = device.label || `Mikrofon ${index + 1}`;
+
+            // Select saved device
+            if (device.deviceId === state.audio.selectedDevice) {
+                option.selected = true;
+            }
+
+            elements.microphoneSelect.appendChild(option);
+        });
+    } catch (error) {
+        console.error('Error enumerating devices:', error);
+    }
+}
+
+function handleMicrophoneSelect(event) {
+    const deviceId = event.target.value;
+    state.audio.selectedDevice = deviceId || null;
+
+    if (deviceId) {
+        localStorage.setItem('uitm-selected-mic', deviceId);
+    } else {
+        localStorage.removeItem('uitm-selected-mic');
+    }
+}
+
+async function testMicrophone() {
+    try {
+        const constraints = {
+            audio: state.audio.selectedDevice
+                ? { deviceId: { exact: state.audio.selectedDevice } }
+                : true
+        };
+
+        const stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // Visual feedback
+        elements.testMicBtn.innerHTML = '<i data-lucide="volume-2"></i> Sedang uji...';
+        lucide.createIcons();
+
+        // Stop after 2 seconds
+        setTimeout(() => {
+            stream.getTracks().forEach(track => track.stop());
+            elements.testMicBtn.innerHTML = '<i data-lucide="check"></i> Mikrofon OK';
+            lucide.createIcons();
+
+            setTimeout(() => {
+                elements.testMicBtn.innerHTML = '<i data-lucide="volume-2"></i> Uji Mikrofon';
+                lucide.createIcons();
+            }, 2000);
+        }, 2000);
+    } catch (error) {
+        console.error('Microphone test failed:', error);
+        elements.testMicBtn.innerHTML = '<i data-lucide="x"></i> Ralat';
+        lucide.createIcons();
+
+        setTimeout(() => {
+            elements.testMicBtn.innerHTML = '<i data-lucide="volume-2"></i> Uji Mikrofon';
+            lucide.createIcons();
+        }, 2000);
+    }
+}
+
+// ========================================
+// AUDIO RECORDING MODULE
+// ========================================
+
+async function startAudioRecording() {
+    try {
+        // Get microphone stream
+        const constraints = {
+            audio: state.audio.selectedDevice
+                ? { deviceId: { exact: state.audio.selectedDevice } }
+                : true
+        };
+
+        state.audio.stream = await navigator.mediaDevices.getUserMedia(constraints);
+
+        // Create MediaRecorder
+        state.audio.mediaRecorder = new MediaRecorder(state.audio.stream, {
+            mimeType: 'audio/webm'
+        });
+
+        state.audio.audioChunks = [];
+
+        // Handle data available
+        state.audio.mediaRecorder.ondataavailable = (event) => {
+            if (event.data.size > 0) {
+                state.audio.audioChunks.push(event.data);
+            }
+        };
+
+        // Handle recording stop
+        state.audio.mediaRecorder.onstop = handleRecordingStop;
+
+        // Start recording
+        state.audio.mediaRecorder.start(100); // Collect data every 100ms
+        state.audio.isRecording = true;
+
+        // Update UI
+        enterRecordingMode();
+
+        // Auto-stop after 30 seconds (prevent long recordings)
+        setTimeout(() => {
+            if (state.audio.isRecording) {
+                stopAudioRecording();
+            }
+        }, 30000);
+
+    } catch (error) {
+        console.error('Error starting audio recording:', error);
+        elements.inputHint.textContent = 'Tidak dapat mengakses mikrofon. Pastikan kebenaran diberi.';
+    }
+}
+
+function stopAudioRecording() {
+    if (state.audio.mediaRecorder && state.audio.mediaRecorder.state !== 'inactive') {
+        state.audio.mediaRecorder.stop();
+    }
+
+    if (state.audio.stream) {
+        state.audio.stream.getTracks().forEach(track => track.stop());
+    }
+
+    state.audio.isRecording = false;
+}
+
+async function handleRecordingStop() {
+    if (state.audio.audioChunks.length === 0) {
+        exitRecordingMode();
         return;
     }
 
-    state.voice.isSupported = true;
-    state.voice.recognition = new SpeechRecognition();
+    // Create blob from chunks
+    const audioBlob = new Blob(state.audio.audioChunks, { type: 'audio/webm' });
 
-    // Configure recognition
-    state.voice.recognition.continuous = true;
-    state.voice.recognition.interimResults = true;
-    state.voice.recognition.lang = 'ms-MY'; // Malay language
+    // Convert to base64
+    const base64Audio = await blobToBase64(audioBlob);
 
-    // Event handlers
-    state.voice.recognition.onstart = handleVoiceStart;
-    state.voice.recognition.onresult = handleVoiceResult;
-    state.voice.recognition.onerror = handleVoiceError;
-    state.voice.recognition.onend = handleVoiceEnd;
+    // Show sending state
+    elements.inputHint.textContent = 'Menghantar audio...';
+
+    // Send as multimodal message
+    await sendAudioMessage(base64Audio);
+
+    // Clear chunks
+    state.audio.audioChunks = [];
+
+    exitRecordingMode();
 }
 
-function toggleVoiceInput() {
-    if (!state.voice.isSupported) return;
-
-    if (state.voice.isRecording) {
-        stopVoiceInput();
-    } else {
-        startVoiceInput();
-    }
+function blobToBase64(blob) {
+    return new Promise((resolve, reject) => {
+        const reader = new FileReader();
+        reader.onloadend = () => {
+            // Get base64 string without data URL prefix
+            const base64String = reader.result.split(',')[1];
+            resolve(base64String);
+        };
+        reader.onerror = reject;
+        reader.readAsDataURL(blob);
+    });
 }
 
-function startVoiceInput() {
+async function sendAudioMessage(base64Audio) {
+    // Disable input while sending
+    elements.sendButton.disabled = true;
+
+    // Add user message to UI
+    addMessage('user', '[Mesej Suara]', null);
+
+    // Prepare multimodal message
+    const multimodalMessage = {
+        role: 'user',
+        content: [
+            {
+                type: 'text',
+                text: 'Sila transkripsi mesej suara ini dan jawab.'
+            },
+            {
+                type: 'input_audio',
+                input_audio: {
+                    data: base64Audio,
+                    format: 'webm'
+                }
+            }
+        ]
+    };
+
+    // Send to API
     try {
-        state.voice.transcript = '';
-        state.voice.errorHandled = false;
-        state.voice.recognition.start();
+        await sendToAPIWithMessage(multimodalMessage);
     } catch (error) {
-        console.error('Voice start error:', error);
-        elements.inputHint.textContent = 'Tidak dapat memulakan pengenalan suara.';
-        setTimeout(exitVoiceMode, 3000);
+        console.error('Error sending audio message:', error);
+        addErrorMessage('Ralat menghantar mesej audio. Sila cuba lagi.');
     }
+
+    elements.sendButton.disabled = false;
 }
 
-function stopVoiceInput() {
-    state.voice.recognition.stop();
-    clearSilenceTimer();
-}
+// Modified sendToAPI that accepts a pre-built message
+async function sendToAPIWithMessage(message) {
+    try {
+        state.isTyping = true;
+        showTypingIndicator();
 
-function handleVoiceStart() {
-    state.voice.isRecording = true;
-    enterVoiceMode();
-}
+        const response = await fetch('/chat', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                messages: [...state.messages, message],
+                model: state.model,
+                stream: true
+            })
+        });
 
-function handleVoiceResult(event) {
-    let interimTranscript = '';
-    let finalTranscript = '';
-
-    for (let i = event.resultIndex; i < event.results.length; i++) {
-        const transcript = event.results[i][0].transcript;
-        if (event.results[i].isFinal) {
-            finalTranscript += transcript;
-        } else {
-            interimTranscript += transcript;
+        if (!response.ok) {
+            throw new Error(`HTTP error! status: ${response.status}`);
         }
-    }
 
-    // Update transcript
-    if (finalTranscript) {
-        state.voice.transcript += finalTranscript;
-    }
+        // Handle streaming response
+        const reader = response.body.getReader();
+        const decoder = new TextDecoder();
 
-    // Display current text (final + interim)
-    const displayText = state.voice.transcript + interimTranscript;
-    elements.messageInput.value = displayText;
+        state.currentReasoning = '';
+        state.currentContent = '';
 
-    // Update char count
-    updateCharCount();
+        while (true) {
+            const { done, value } = await reader.read();
+            if (done) break;
 
-    // Reset silence timer on speech detected
-    if (interimTranscript || finalTranscript) {
-        resetSilenceTimer();
-    }
-}
+            const chunk = decoder.decode(value, { stream: true });
+            const lines = chunk.split('\n');
 
-function handleVoiceError(event) {
-    console.error('Voice recognition error:', event.error);
+            for (const line of lines) {
+                if (!line.startsWith('data: ')) continue;
 
-    // Prevent multiple rapid error handling
-    if (state.voice.errorHandled) return;
-    state.voice.errorHandled = true;
-    setTimeout(() => { state.voice.errorHandled = false; }, 1000);
+                const dataStr = line.slice(6).trim();
+                if (dataStr === '[DONE]') continue;
 
-    if (event.error === 'not-allowed') {
-        alert('Kebenaran mikrofon diperlukan untuk ciri suara.');
-    } else if (event.error === 'no-speech') {
-        // No speech detected, just exit voice mode
-        elements.inputHint.textContent = 'Tiada suara dikesan. Cuba lagi.';
-        setTimeout(exitVoiceMode, 2000);
-    } else if (event.error === 'network') {
-        // Network error - speech API requires internet or HTTPS
-        console.log('Network error: Speech recognition requires internet connection');
-        elements.inputHint.textContent = 'Ralat rangkaian. Pastikan internet aktif.';
-        setTimeout(exitVoiceMode, 3000);
-        return; // Don't call exitVoiceMode immediately, let user see the message
-    } else if (event.error === 'aborted') {
-        // Recognition aborted, no action needed
-        console.log('Speech recognition aborted');
-    }
-
-    exitVoiceMode();
-    state.voice.isRecording = false;
-    clearSilenceTimer();
-}
-
-function handleVoiceEnd() {
-    state.voice.isRecording = false;
-
-    // If we have transcript, send it
-    if (state.voice.transcript.trim()) {
-        sendVoiceMessage();
-    } else {
-        exitVoiceMode();
-    }
-}
-
-function resetSilenceTimer() {
-    clearSilenceTimer();
-    state.voice.silenceTimer = setTimeout(() => {
-        // 5 seconds of silence - auto send
-        if (state.voice.isRecording) {
-            stopVoiceInput();
+                try {
+                    const data = JSON.parse(dataStr);
+                    processStreamData(data);
+                } catch (e) {
+                    // Ignore parse errors
+                }
+            }
         }
-    }, state.voice.silenceThreshold);
-}
 
-function clearSilenceTimer() {
-    if (state.voice.silenceTimer) {
-        clearTimeout(state.voice.silenceTimer);
-        state.voice.silenceTimer = null;
+        finalizeResponse();
+
+    } catch (error) {
+        console.error('API Error:', error);
+        addErrorMessage('Maaf, terdapat ralat semasa berkomunikasi dengan AI. Sila cuba lagi.');
+        finalizeResponse();
     }
 }
 
-function enterVoiceMode() {
+function enterRecordingMode() {
     elements.inputContainer.classList.add('voice-mode');
     elements.micButton.classList.add('active');
-    elements.inputHint.textContent = 'Mendengar... berhenti bercakap untuk hantar';
-    elements.messageInput.placeholder = 'Dengar... (bercakap sekarang)';
-    elements.messageInput.value = '';
+    elements.inputHint.textContent = 'Merakam... ketuk mic untuk berhenti';
+    elements.messageInput.placeholder = 'Merakam audio...';
 }
 
-function exitVoiceMode() {
+function exitRecordingMode() {
     elements.inputContainer.classList.remove('voice-mode');
     elements.micButton.classList.remove('active');
     elements.inputHint.textContent = 'Tekan Enter untuk hantar, Shift+Enter untuk baris baru';
     elements.messageInput.placeholder = 'Taip mesej anda di sini...';
-}
-
-function sendVoiceMessage() {
-    const message = state.voice.transcript.trim();
-    if (message) {
-        elements.messageInput.value = message;
-        sendMessage();
-    }
-    state.voice.transcript = '';
-    exitVoiceMode();
 }
 
 // Expose toggleReasoning to global scope for onclick handlers

@@ -18,7 +18,7 @@ app.secret_key = os.getenv('FLASK_SECRET_KEY', 'uitm-chatbot-secret-key')
 # OpenRouter Configuration
 OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'deepseek/deepseek-v3.2')
+DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'google/gemini-3.1-flash-lite-preview')
 
 # System prompt for UITM Receptionist
 SYSTEM_PROMPT = """Anda adalah Pembantu AI rasmi Universiti Teknologi MARA (UITM), Malaysia.
@@ -28,7 +28,8 @@ Peranan anda:
 2. Membantu pelawat, staf, pelajar, dan pensyarah
 3. Menjawab pertanyaan mengenai kemasukan, program, kemudahan, dan perkhidmatan
 4. Berkomunikasi dalam Bahasa Melayu yang formal tetapi mesra
-5. Jika tidak pasti, nasihatkan pengguna untuk menghubungi pejabat berkaitan
+5. Jika menerima input audio, transkripsi dan respons akan diberikan
+6. Jika tidak pasti, nasihatkan pengguna untuk menghubungi pejabat berkaitan
 
 Maklumat penting UITM:
 - Universiti Teknologi MARA adalah universiti awam terbesar di Malaysia

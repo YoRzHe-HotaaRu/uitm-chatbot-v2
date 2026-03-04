@@ -133,10 +133,11 @@ Semasa AI menjawab:
 Edit `app.py` atau ubah dalam `.env`:
 
 ```python
-DEFAULT_MODEL = 'deepseek/deepseek-v3.2'  # Model dengan reasoning
+DEFAULT_MODEL = 'google/gemini-3.1-flash-lite-preview'  # Model dengan sokongan audio
 ```
 
 Model lain yang disyorkan:
+- `google/gemini-3.1-flash-lite-preview` - Percuma, sokongan audio
 - `deepseek/deepseek-v3.2` - Percuma, reasoning hebat
 - `openai/o3-mini` - Reasoning OpenAI
 - `anthropic/claude-3-sonnet` - Pilihan berbayar

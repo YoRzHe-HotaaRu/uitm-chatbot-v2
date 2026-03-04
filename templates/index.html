@@ -33,9 +33,8 @@
                 <h2>AI Receptionist</h2>
                 <span>Pembantu Maya Rasmi</span>
             </div>
-            <button class="theme-toggle" id="themeToggle" aria-label="Tukar tema">
-                <i data-lucide="sun" class="light-icon"></i>
-                <i data-lucide="moon" class="dark-icon"></i>
+            <button class="settings-toggle" id="settingsToggle" aria-label="Tetapan">
+                <i data-lucide="settings"></i>
             </button>
         </div>
     </header>
@@ -303,6 +302,57 @@
     <script>lucide.createIcons();</script>
     
     <!-- Main JavaScript -->
+    <!-- Settings Modal -->
+    <div class="settings-modal" id="settingsModal">
+        <div class="settings-overlay" id="settingsOverlay"></div>
+        <div class="settings-content">
+            <div class="settings-header">
+                <h3>Tetapan</h3>
+                <button class="close-settings" id="closeSettings" aria-label="Tutup">
+                    <i data-lucide="x"></i>
+                </button>
+            </div>
+
+            <div class="settings-body">
+                <!-- Theme Section -->
+                <div class="settings-section">
+                    <h4><i data-lucide="palette"></i> Tema</h4>
+                    <div class="theme-options">
+                        <button class="theme-option" data-theme="light" id="themeLight">
+                            <i data-lucide="sun"></i>
+                            <span>Cerah</span>
+                        </button>
+                        <button class="theme-option" data-theme="dark" id="themeDark">
+                            <i data-lucide="moon"></i>
+                            <span>Gelap</span>
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Microphone Section -->
+                <div class="settings-section">
+                    <h4><i data-lucide="mic"></i> Mikrofon</h4>
+                    <select id="microphoneSelect" class="mic-select">
+                        <option value="">Pilih mikrofon...</option>
+                    </select>
+                    <button class="test-mic-btn" id="testMicBtn">
+                        <i data-lucide="volume-2"></i>
+                        Uji Mikrofon
+                    </button>
+                </div>
+
+                <!-- Model Info Section -->
+                <div class="settings-section">
+                    <h4><i data-lucide="cpu"></i> Model AI</h4>
+                    <div class="model-info">
+                        <span class="model-name">Gemini 3.1 Flash Lite</span>
+                        <span class="model-desc">Pengoptimuman tinggi dengan sokongan audio</span>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
     <script src="{{ url_for('static', filename='js/app.js') }}"></script>
 </body>
 </html>
