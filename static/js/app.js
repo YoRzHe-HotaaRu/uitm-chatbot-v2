@@ -460,6 +460,11 @@ function updateLiveContent(content) {
 
 async function sendToAPI() {
     try {
+        // Reset state for new message
+        state.currentReasoning = '';
+        state.currentContent = '';
+        state.ragUsed = false;
+        
         const response = await fetch('/chat', {
             method: 'POST',
             headers: {
@@ -901,6 +906,7 @@ async function sendToAPIWithMessage(message) {
 
         state.currentReasoning = '';
         state.currentContent = '';
+        state.ragUsed = false;  // Reset RAG flag for new message
 
         while (true) {
             const { done, value } = await reader.read();

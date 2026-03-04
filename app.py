@@ -106,7 +106,24 @@ def get_last_user_query(messages):
     """Extract the last user message from the conversation"""
     for msg in reversed(messages):
         if msg.get('role') == 'user':
-            return msg.get('content', '')
+            content = msg.get('content', '')
+            
+            # Handle multimodal messages (e.g., voice messages)
+            # Content can be a list of objects with 'text' and 'input_audio'
+            if isinstance(content, list):
+                # Extract text parts from multimodal content
+                text_parts = []
+                for item in content:
+                    if isinstance(item, dict):
+                        if item.get('type') == 'text':
+                            text_parts.append(item.get('text', ''))
+                        elif item.get('type') == 'input_text':
+                            text_parts.append(item.get('text', ''))
+                # Join all text parts for RAG search
+                return ' '.join(text_parts)
+            
+            # Regular text message
+            return content
     return ''
 
 
@@ -145,7 +162,21 @@ def chat():
     retrieved_context = ''
     sources = []
     rag_used = False
-    if ENABLE_RAG and rag_manager and user_query:
+    
+    # Skip RAG for voice/multimodal messages
+    # We can't search the knowledge base until we know the transcribed content
+    last_message = messages[-1] if messages else None
+    is_voice_message = False
+    if last_message and last_message.get('role') == 'user':
+        content = last_message.get('content', '')
+        if isinstance(content, list):
+            # Check if this is a voice message (contains input_audio)
+            is_voice_message = any(
+                isinstance(item, dict) and item.get('type') == 'input_audio'
+                for item in content
+            )
+    
+    if ENABLE_RAG and rag_manager and user_query and not is_voice_message:
         try:
             rag_result = rag_manager.query(
                 query_text=user_query,
