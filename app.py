@@ -144,6 +144,7 @@ def chat():
     # Retrieve context using RAG if enabled
     retrieved_context = ''
     sources = []
+    rag_used = False
     if ENABLE_RAG and rag_manager and user_query:
         try:
             rag_result = rag_manager.query(
@@ -153,6 +154,7 @@ def chat():
             )
             retrieved_context = rag_result.get('context', '')
             sources = rag_result.get('sources', [])
+            rag_used = len(sources) > 0  # RAG was used if we found sources
         except Exception as e:
             print(f"RAG query error: {e}")
     
@@ -194,10 +196,14 @@ def chat():
                         if decoded_line.startswith('data: '):
                             data_str = decoded_line[6:]
                             if data_str == '[DONE]':
-                                # Send sources information if available
+                                # Send RAG metadata if available
+                                rag_metadata = {}
+                                if rag_used:
+                                    rag_metadata['rag_used'] = True
                                 if sources:
-                                    sources_data = {'sources': sources}
-                                    yield f'data: {json.dumps({"sources": sources_data})}\n\n'
+                                    rag_metadata['sources'] = sources
+                                if rag_metadata:
+                                    yield f'data: {json.dumps({"rag_metadata": rag_metadata})}\n\n'
                                 yield 'data: [DONE]\n\n'
                                 break
                             try:
@@ -232,7 +238,9 @@ def chat():
                     'role': 'assistant'
                 }
                 
-                # Include sources if available
+                # Include RAG metadata if available
+                if rag_used:
+                    result['rag_used'] = True
                 if sources:
                     result['sources'] = sources
                 

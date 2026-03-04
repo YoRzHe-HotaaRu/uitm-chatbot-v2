@@ -211,6 +211,12 @@ p {
     display: block;
 }
 
+[data-theme="dark"] .rag-indicator {
+    background: var(--bg-secondary);
+    border-color: var(--border-color);
+    color: var(--accent-tertiary);
+}
+
 /* ========================================
    MAIN CONTAINER & LAYOUT
    ======================================== */
@@ -475,6 +481,32 @@ p {
 .timestamp {
     font-size: 0.7rem;
     color: var(--text-muted);
+}
+
+.message-meta {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-left: auto;
+}
+
+.rag-indicator {
+    display: inline-flex;
+    align-items: center;
+    gap: 0.25rem;
+    font-size: 0.65rem;
+    font-weight: 600;
+    color: var(--accent-secondary);
+    background: var(--bg-tertiary);
+    padding: 0.15rem 0.4rem;
+    border: 1px solid var(--border-color);
+    font-family: 'Space Grotesk', sans-serif;
+    letter-spacing: 0.02em;
+}
+
+.rag-indicator i {
+    width: 10px;
+    height: 10px;
 }
 
 .message-text {

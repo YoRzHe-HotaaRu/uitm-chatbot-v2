@@ -15,6 +15,7 @@ const state = {
     model: 'google/gemini-3.1-flash-lite-preview',
     currentReasoning: '',
     currentContent: '',
+    ragUsed: false,
 
     // Audio recording state (for OpenRouter multimodal)
     audio: {
@@ -310,7 +311,7 @@ function handleQuickQuestion(question) {
     setTimeout(() => sendMessage(), 300);
 }
 
-function addMessage(role, content, reasoning = null) {
+function addMessage(role, content, reasoning = null, ragUsed = false) {
     const messageDiv = document.createElement('div');
     messageDiv.className = `message ${role}-message`;
     
@@ -324,7 +325,10 @@ function addMessage(role, content, reasoning = null) {
         <div class="message-content">
             <div class="message-header">
                 <span class="sender-name">${isAI ? 'AI Receptionist UITM' : 'Anda'}</span>
-                <span class="timestamp">${timestamp}</span>
+                <div class="message-meta">
+                    ${ragUsed ? '<span class="rag-indicator" title="Jawapan menggunakan maklumat dari pangkalan pengetahuan UITM"><i data-lucide="database"></i> RAG</span>' : ''}
+                    <span class="timestamp">${timestamp}</span>
+                </div>
             </div>
             <div class="message-text">
                 ${formatMessageContent(content)}
@@ -520,6 +524,12 @@ async function sendToAPI() {
 }
 
 function processStreamData(data) {
+    // Handle RAG metadata
+    if (data.rag_metadata) {
+        state.ragUsed = data.rag_metadata.rag_used || false;
+        return;
+    }
+    
     if (!data.choices || !data.choices[0]) return;
     
     const delta = data.choices[0].delta;
@@ -544,14 +554,18 @@ function finalizeResponse() {
         const messageContent = state.currentContent || 'Tiada respons.';
         const reasoning = state.currentReasoning || null;
         
-        addMessage('assistant', messageContent, reasoning);
+        addMessage('assistant', messageContent, reasoning, state.ragUsed);
         
         // Save to state
         state.messages.push({
             role: 'assistant',
             content: messageContent,
-            reasoning: reasoning
+            reasoning: reasoning,
+            ragUsed: state.ragUsed
         });
+        
+        // Reset RAG flag for next message
+        state.ragUsed = false;
     }
 }
 
