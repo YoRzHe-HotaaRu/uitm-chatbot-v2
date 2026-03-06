@@ -275,7 +275,7 @@ Untuk lip sync berfungsi, anda perlu mengikat parameter input ke output dalam VT
 
 ## Lesen
 
-Hak Cipta © 2025 Universiti Teknologi MARA
+Hak Cipta © 2026 Universiti Teknologi MARA
 
 ## Sumbangan
 
