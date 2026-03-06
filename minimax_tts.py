@@ -38,8 +38,8 @@ class MinimaxTTS:
         "language_boost": "Malay",
         "pronunciation_dict": {"tone": ["uitm/UITM", "UiTM/UITM"]},
         "audio_setting": {
-            "sample_rate": 16000,
-            "bitrate": 64000,
+            "sample_rate": 32000,
+            "bitrate": 128000,
             "format": "mp3",
             "channel": 1
         },
