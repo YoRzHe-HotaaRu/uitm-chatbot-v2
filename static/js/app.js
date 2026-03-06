@@ -1,5 +1,5 @@
 /**
- * UITM Receptionist AI - Frontend JavaScript
+ * UiTM Receptionist AI - Frontend JavaScript
  * Handles chat functionality, theme switching, panel toggling, and streaming responses
  */
 
@@ -373,13 +373,13 @@ function addMessage(role, content, reasoning = null, ragUsed = false, imageData 
     
     messageDiv.innerHTML = `
         <div class="message-avatar">
-            <i data-lucide="${isAI ? 'bot' : 'user'}"></i>
+            ${isAI ? '<img src="/static/assets/bot-avatar.svg" alt="AI Avatar" class="avatar-svg" />' : '<img src="/static/assets/user-avatar.svg" alt="User Avatar" class="avatar-svg" />'}
         </div>
         <div class="message-content">
             <div class="message-header">
-                <span class="sender-name">${isAI ? 'AI Receptionist UITM' : 'Anda'}</span>
+                <span class="sender-name">${isAI ? 'AI Receptionist UiTM' : 'Anda'}</span>
                 <div class="message-meta">
-                    ${ragUsed ? '<span class="rag-indicator" title="Jawapan menggunakan maklumat dari pangkalan pengetahuan UITM"><i data-lucide="database"></i> RAG</span>' : ''}
+                    ${ragUsed ? '<span class="rag-indicator" title="Jawapan menggunakan maklumat dari pangkalan pengetahuan UiTM"><i data-lucide="database"></i> RAG</span>' : ''}
                     <span class="timestamp">${timestamp}</span>
                 </div>
             </div>

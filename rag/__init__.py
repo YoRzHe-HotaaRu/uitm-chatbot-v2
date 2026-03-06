@@ -1,5 +1,5 @@
 """
-RAG (Retrieval-Augmented Generation) System for UITM Chatbot
+RAG (Retrieval-Augmented Generation) System for UiTM Chatbot
 """
 
 from .rag_manager import RAGManager

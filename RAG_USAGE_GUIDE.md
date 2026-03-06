@@ -1,6 +1,6 @@
 # RAG System Usage Guide
 
-This guide explains how to use and maintain the Retrieval-Augmented Generation (RAG) system in your UITM Chatbot.
+This guide explains how to use and maintain the Retrieval-Augmented Generation (RAG) system in your UiTM Chatbot.
 
 ## Overview
 
@@ -164,7 +164,7 @@ Response:
     {
       "id": "03-campus/facilities_library.md#0",
       "content": "Waktu Operasi: Isnin - Khamis: 8:00 pagi...",
-      "doc_title": "Kemudahan Perpustakaan UITM",
+      "doc_title": "Kemudahan Perpustakaan UiTM",
       "category": "03-campus",
       "relevance": 0.89
     }
@@ -471,7 +471,7 @@ Add `_metadata.json` to image folders:
 User: "Berapa waktu perpustakaan buka?"
 
 Retrieved Context:
-[Sumber: Kemudahan Perpustakaan UITM]
+[Sumber: Kemudahan Perpustakaan UiTM]
 Waktu Operasi Semester:
 - Isnin - Khamis: 8:00 pagi - 10:00 malam
 - Jumaat: 8:00 pagi - 12:00 tengah hari, 2:45 petang - 10:00 malam
@@ -493,7 +493,7 @@ Semasa Semester:
 User: "Nombor telefon perpustakaan?"
 
 Retrieved Context:
-[Sumber: Hubungan Penting UITM]
+[Sumber: Hubungan Penting UiTM]
 Perpustakaan Tun Abdul Razak (PTAR)
 Telefon: 03-5544 3740
 Emel: ptar@uitm.edu.my

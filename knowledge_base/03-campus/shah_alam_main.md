@@ -2,7 +2,7 @@
 
 ## Pengenalan
 
-Kampus Shah Alam adalah kampus induk dan pusat pentadbiran Universiti Teknologi MARA (UITM). Terletak di Shah Alam, Selangor, kampus ini merupakan kampus terbesar UITM dengan keluasan lebih daripada 100 hektar.
+Kampus Shah Alam adalah kampus induk dan pusat pentadbiran Universiti Teknologi MARA (UiTM). Terletak di Shah Alam, Selangor, kampus ini merupakan kampus terbesar UiTM dengan keluasan lebih daripada 100 hektar.
 
 ## Sejarah
 

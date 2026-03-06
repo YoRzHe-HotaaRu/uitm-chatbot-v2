@@ -60,7 +60,7 @@ class VectorStore:
             # Get or create collection
             self.collection = self.client.get_or_create_collection(
                 name=self.collection_name,
-                metadata={"description": "UITM Knowledge Base"}
+                metadata={"description": "UiTM Knowledge Base"}
             )
             
             self._initialized = True
@@ -216,7 +216,7 @@ class VectorStore:
         
         self.collection = self.client.create_collection(
             name=self.collection_name,
-            metadata={"description": "UITM Knowledge Base"}
+                metadata={"description": "UiTM Knowledge Base"}
         )
         
         print("Vector store cleared")

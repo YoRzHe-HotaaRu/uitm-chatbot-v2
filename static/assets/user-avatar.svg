@@ -1,0 +1,127 @@
+<svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg">
+    <defs>
+        <keySpline id="ease" values="0.4 0 0.6 1; 0.4 0 0.6 1"/>
+        <keySpline id="snap" values="0.1 0.8 0.2 1; 0.1 0.8 0.2 1; 0.1 0.8 0.2 1; 0.1 0.8 0.2 1; 0.1 0.8 0.2 1; 0.1 0.8 0.2 1"/>
+    </defs>
+
+    <circle cx="100" cy="100" r="95" fill="#FFC800" />
+
+    <ellipse cx="100" cy="165" rx="40" ry="8" fill="#D3A600">
+        <animate attributeName="rx" values="45; 35; 45" keyTimes="0; 0.5; 1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1" dur="3s" repeatCount="indefinite" />
+        <animate attributeName="ry" values="8; 6; 8" keyTimes="0; 0.5; 1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1" dur="3s" repeatCount="indefinite" />
+        <animate attributeName="opacity" values="1; 0.6; 1" keyTimes="0; 0.5; 1" calcMode="spline" keySplines="0.4 0 0.6 1; 0.4 0 0.6 1" dur="3s" repeatCount="indefinite" />
+    </ellipse>
+
+    <g id="student">
+        <animateTransform 
+            attributeName="transform" 
+            type="translate" 
+            values="0,-2; 0,-10; 0,-2" 
+            keyTimes="0; 0.5; 1" 
+            calcMode="spline" 
+            keySplines="0.4 0 0.6 1; 0.4 0 0.6 1" 
+            dur="3.2s" 
+            repeatCount="indefinite" />
+
+        <rect x="55" y="100" width="90" height="50" rx="20" fill="#46A302" />
+        <rect x="55" y="97" width="90" height="50" rx="20" fill="#58CC02" />
+
+        <rect x="90" y="100" width="20" height="15" fill="#DDA183" />
+
+        <rect x="65" y="113" width="70" height="40" rx="20" fill="#1483B8" />
+        <rect x="65" y="110" width="70" height="40" rx="20" fill="#1CB0F6" />
+
+        <rect x="70" y="125" width="60" height="30" rx="5" fill="#D33131" />
+        <rect x="70" y="122" width="60" height="30" rx="5" fill="#FF4B4B" />
+        <rect x="75" y="122" width="55" height="25" rx="3" fill="#E5E5E5" />
+        <rect x="75" y="120" width="55" height="25" rx="3" fill="#FFFFFF" />
+        <rect x="90" y="120" width="8" height="18" fill="#FFC800" />
+
+        <circle cx="72" cy="135" r="7" fill="#DDA183" />
+        <circle cx="72" cy="133" r="7" fill="#FFCBB3" />
+        <circle cx="128" cy="135" r="7" fill="#DDA183" />
+        <circle cx="128" cy="133" r="7" fill="#FFCBB3" />
+
+        <rect x="55" y="48" width="90" height="70" rx="35" fill="#DDA183" />
+        <rect x="55" y="45" width="90" height="70" rx="35" fill="#FFCBB3" />
+
+        <circle cx="53" cy="80" r="8" fill="#DDA183" />
+        <circle cx="53" cy="78" r="8" fill="#FFCBB3" />
+        <circle cx="147" cy="80" r="8" fill="#DDA183" />
+        <circle cx="147" cy="78" r="8" fill="#FFCBB3" />
+
+        <path d="M 50 70 Q 50 35 100 35 Q 150 35 150 70 Z" fill="#33232F" />
+        <path d="M 50 67 Q 50 32 100 32 Q 150 32 150 67 Z" fill="#4A3544" />
+        <rect x="50" y="32" width="45" height="30" rx="15" fill="#4A3544" />
+        <rect x="80" y="28" width="50" height="35" rx="17.5" fill="#4A3544" />
+        <rect x="115" y="35" width="35" height="25" rx="12.5" fill="#4A3544" />
+        <path d="M 85 35 Q 95 30 105 35" fill="none" stroke="#FFFFFF" stroke-width="4" stroke-linecap="round" opacity="0.2" />
+
+        <ellipse cx="70" cy="90" rx="8" ry="5" fill="#FF78B4" opacity="0.4" />
+        <ellipse cx="130" cy="90" rx="8" ry="5" fill="#FF78B4" opacity="0.4" />
+
+        <ellipse cx="100" cy="95" rx="4" ry="5" fill="#4B4B4B">
+             <animate attributeName="rx" values="4; 6; 4; 4" keyTimes="0; 0.2; 0.5; 1" dur="3s" repeatCount="indefinite"/>
+             <animate attributeName="ry" values="5; 8; 5; 5" keyTimes="0; 0.2; 0.5; 1" dur="3s" repeatCount="indefinite"/>
+        </ellipse>
+
+        <ellipse cx="75" cy="75" rx="11" ry="15" fill="#FFFFFF">
+            <animate attributeName="ry" values="15; 15; 2; 15; 15" keyTimes="0; 0.45; 0.5; 0.55; 1" dur="4.5s" repeatCount="indefinite" />
+        </ellipse>
+        <ellipse cx="125" cy="75" rx="11" ry="15" fill="#FFFFFF">
+            <animate attributeName="ry" values="15; 15; 2; 15; 15" keyTimes="0; 0.45; 0.5; 0.55; 1" dur="4.5s" repeatCount="indefinite" />
+        </ellipse>
+
+        <g>
+            <animateTransform 
+                attributeName="transform" 
+                type="translate" 
+                values="0,0; -4,2; -4,2; 5,-3; 5,-3; 0,0; 0,0" 
+                keyTimes="0; 0.1; 0.3; 0.4; 0.6; 0.7; 1" 
+                calcMode="spline" 
+                keySplines="0.1 0.8 0.2 1; 1 0 0 1; 0.1 0.8 0.2 1; 1 0 0 1; 0.1 0.8 0.2 1; 1 0 0 1" 
+                dur="4s" 
+                repeatCount="indefinite" />
+            
+            <ellipse cx="77" cy="75" rx="6" ry="8" fill="#4B4B4B">
+                <animate attributeName="ry" values="8; 8; 1; 8; 8" keyTimes="0; 0.45; 0.5; 0.55; 1" dur="4.5s" repeatCount="indefinite" />
+            </ellipse>
+            <circle cx="75" cy="72" r="2.5" fill="#FFFFFF">
+                 <animate attributeName="opacity" values="1; 1; 0; 1; 1" keyTimes="0; 0.45; 0.5; 0.55; 1" dur="4.5s" repeatCount="indefinite" />
+            </circle>
+
+            <ellipse cx="123" cy="75" rx="6" ry="8" fill="#4B4B4B">
+                <animate attributeName="ry" values="8; 8; 1; 8; 8" keyTimes="0; 0.45; 0.5; 0.55; 1" dur="4.5s" repeatCount="indefinite" />
+            </ellipse>
+            <circle cx="121" cy="72" r="2.5" fill="#FFFFFF">
+                <animate attributeName="opacity" values="1; 1; 0; 1; 1" keyTimes="0; 0.45; 0.5; 0.55; 1" dur="4.5s" repeatCount="indefinite" />
+            </circle>
+        </g>
+
+        <path d="M 62 60 Q 72 53 82 58" fill="none" stroke="#4A3544" stroke-width="4" stroke-linecap="round">
+            <animate attributeName="d" values="M 62 60 Q 72 53 82 58; M 62 55 Q 72 48 82 53; M 62 60 Q 72 53 82 58" keyTimes="0; 0.4; 1" dur="4s" repeatCount="indefinite"/>
+        </path>
+        <path d="M 118 58 Q 128 53 138 60" fill="none" stroke="#4A3544" stroke-width="4" stroke-linecap="round">
+             <animate attributeName="d" values="M 118 58 Q 128 53 138 60; M 118 50 Q 128 42 138 52; M 118 58 Q 128 53 138 60" keyTimes="0; 0.4; 1" dur="4s" repeatCount="indefinite"/>
+        </path>
+
+        <g>
+            <animateTransform 
+                attributeName="transform" 
+                type="translate" 
+                values="0,0; 0,-6; 0,0" 
+                keyTimes="0; 0.5; 1"
+                calcMode="spline" 
+                keySplines="0.4 0 0.6 1; 0.4 0 0.6 1" 
+                dur="2s" 
+                repeatCount="indefinite" />
+            <animate attributeName="opacity" values="0.7; 1; 0.7" dur="2s" repeatCount="indefinite" />
+            
+            <path d="M 145 25 Q 145 15 155 15 Q 165 15 165 25 Q 165 33 155 38 L 155 43" fill="none" stroke="#D3A600" stroke-width="7" stroke-linecap="round"/>
+            <circle cx="155" cy="53" r="3.5" fill="#D3A600"/>
+            
+            <path d="M 145 22 Q 145 12 155 12 Q 165 12 165 22 Q 165 30 155 35 L 155 40" fill="none" stroke="#FFFFFF" stroke-width="7" stroke-linecap="round"/>
+            <circle cx="155" cy="50" r="3.5" fill="#FFFFFF"/>
+        </g>
+    </g>
+</svg>

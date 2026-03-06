@@ -1,4 +1,4 @@
-# Kemudahan Perpustakaan UITM
+# Kemudahan Perpustakaan UiTM
 
 ## Perpustakaan Tun Abdul Razak (PTAR)
 

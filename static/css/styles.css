@@ -1,5 +1,5 @@
 /**
- * UITM Receptionist AI - Stylesheet
+ * UiTM Receptionist AI - Stylesheet
  * Swedish Geometric Architecture Design
  * NO ROUNDED CORNERS - Sharp edges throughout
  */
@@ -427,23 +427,38 @@ p {
 .message-avatar {
     width: 40px;
     height: 40px;
-    background-color: var(--accent-primary);
+    background-color: transparent;
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    border: 2px solid var(--accent-primary);
+    border: none;
+    overflow: hidden;
 }
 
 .user-message .message-avatar {
-    background-color: var(--accent-secondary);
-    border-color: var(--accent-secondary);
+    background-color: transparent;
+    border: none;
+    overflow: hidden;
 }
 
 .message-avatar svg {
     width: 20px;
     height: 20px;
+}
+
+.message-avatar .avatar-svg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: inherit;
+}
+
+.ai-message .message-avatar {
+    background-color: transparent;
+    border: none;
+    overflow: hidden;
 }
 
 .message-content {
@@ -825,14 +840,14 @@ p {
 .typing-avatar {
     width: 40px;
     height: 40px;
-    background-color: var(--accent-primary);
+    background-color: transparent;
     color: white;
     display: flex;
     align-items: center;
     justify-content: center;
     flex-shrink: 0;
-    border: 2px solid var(--accent-primary);
-    animation: pulse 1.5s infinite;
+    border: none;
+    overflow: hidden;
 }
 
 @keyframes pulse {
@@ -843,6 +858,13 @@ p {
 .typing-avatar svg {
     width: 20px;
     height: 20px;
+}
+
+.typing-avatar .avatar-svg {
+    width: 100%;
+    height: 100%;
+    object-fit: contain;
+    border-radius: inherit;
 }
 
 .typing-body {

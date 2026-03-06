@@ -31,15 +31,15 @@ class MinimaxTTS:
     
     WS_URL = "wss://api.minimax.io/ws/v1/t2a_v2"
     
-    # Default settings for UITM chatbot
+    # Default settings for UiTM chatbot
     DEFAULT_CONFIG = {
         "model": "speech-2.8-turbo",
         "voice_id": "Malay_male_1_v1",
         "language_boost": "Malay",
-        "pronunciation_dict": {"tone": ["uitm/UITM"]},
+        "pronunciation_dict": {"tone": ["uitm/UITM", "UiTM/UITM"]},
         "audio_setting": {
-            "sample_rate": 32000,
-            "bitrate": 128000,
+            "sample_rate": 16000,
+            "bitrate": 64000,
             "format": "mp3",
             "channel": 1
         },

@@ -2,7 +2,7 @@
 
 ## Syarat Am Universiti
 
-Calon hendaklah memenuhi syarat am dan syarat khas program sebelum boleh memohon kemasukan ke UITM.
+Calon hendaklah memenuhi syarat am dan syarat khas program sebelum boleh memohon kemasukan ke UiTM.
 
 ### Syarat Am Minimum
 
@@ -39,13 +39,13 @@ Calon yang mempunyai kelayakan berikut boleh memohon terus ke Tahun 1:
 - Mendapat sekurang-kurangnya Gred C (NGMP 2.00) dalam 2 mata pelajaran
 - Mendapat sekurang-kurangnya Gred C (NGMP 2.00) dalam mata pelajaran Pengajian Am
 
-#### Matrikulasi/Asasi UITM
-- Lulus Program Matrikulasi KPM/Asasi UITM
+#### Matrikulasi/Asasi UiTM
+- Lulus Program Matrikulasi KPM/Asasi UiTM
 - Mendapat sekurang-kurangnya PNGK 2.00
 - Mendapat sekurang-kurangnya Gred C dalam 2 mata pelajaran
 
 #### Diploma
-- Memiliki Diploma yang diiktiraf oleh UITM
+- Memiliki Diploma yang diiktiraf oleh UiTM
 - Mendapat sekurang-kurangnya PNGK 2.00
 - Diploma dalam bidang berkaitan (keutamaan)
 

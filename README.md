@@ -1,6 +1,6 @@
-# Pembantu AI UITM
+# Pembantu AI UiTM
 
-Sistem chatbot AI rasmi untuk Universiti Teknologi MARA (UITM) yang membantu pelawat, staf, pelajar, dan pensyarah dengan maklumat universiti.
+Sistem chatbot AI rasmi untuk Universiti Teknologi MARA (UiTM) yang membantu pelawat, staf, pelajar, dan pensyarah dengan maklumat universiti.
 
 ## Ciri-Ciri Utama
 
@@ -112,7 +112,7 @@ uitm-chatbot/
 
 ## Kategori Akses Pantas
 
-1. **Maklumat Am** - Apa itu UITM, Sejarah, Lokasi
+1. **Maklumat Am** - Apa itu UiTM, Sejarah, Lokasi
 2. **Kemasukan** - Syarat, Cara Memohon, Yuran
 3. **Program** - Diploma, Ijazah, Pascasiswazah
 4. **Kemudahan** - Perpustakaan, Asrama, Sukan
@@ -170,8 +170,8 @@ Hak Cipta © 2025 Universiti Teknologi MARA
 
 ## Sumbangan
 
-Projek ini dibangunkan untuk kegunaan dalaman UITM. Untuk pertanyaan atau cadangan penambahbaikan, sila hubungi pihak ICT UITM.
+Projek ini dibangunkan untuk kegunaan dalaman UiTM. Untuk pertanyaan atau cadangan penambahbaikan, sila hubungi pihak ICT UiTM.
 
 ---
 
-**Moto UITM**: Usaha • Taqwa • Mulia
+**Moto UiTM**: Usaha • Taqwa • Mulia

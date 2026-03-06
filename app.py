@@ -1,6 +1,6 @@
 """
-UITM Receptionist AI - Flask Backend with RAG System
-Pembantu AI UITM - Backend Flask dengan Sistem RAG
+UiTM Receptionist AI - Flask Backend with RAG System
+Pembantu AI UiTM - Backend Flask dengan Sistem RAG
 """
 
 import os
@@ -65,11 +65,11 @@ if ENABLE_RAG:
         traceback.print_exc()
         rag_manager = None
 
-# Base system prompt for UITM Receptionist
-BASE_SYSTEM_PROMPT = """Anda adalah Pembantu AI rasmi Universiti Teknologi MARA (UITM), Malaysia.
+# Base system prompt for UiTM Receptionist
+BASE_SYSTEM_PROMPT = """Anda adalah Pembantu AI rasmi Universiti Teknologi MARA (UiTM), Malaysia.
 
 Peranan anda:
-1. Memberikan maklumat tepat dan mesra tentang UITM
+1. Memberikan maklumat tepat dan mesra tentang UiTM
 2. Membantu pelawat, staf, pelajar, dan pensyarah
 3. Menjawab pertanyaan mengenai kemasukan, program, kemudahan, dan perkhidmatan
 4. Berkomunikasi dalam Bahasa Melayu yang formal tetapi mesra
@@ -84,9 +84,9 @@ Garis Panduan Respons:
 - Untuk sambungan perbualan, teruskan dari topik sebelumnya
 - Elakkan penggunaan ucapan agama seperti "Waalaikumussalam" atau "Assalamualaikum"
 
-Maklumat penting UITM:
+Maklumat penting UiTM:
 - Universiti Teknologi MARA adalah universiti awam terbesar di Malaysia
-- Ditubuhkan pada tahun 1956 sebagai Kolej RIDA, kemudian ITM (1965), dan menjadi UITM (1999)
+- Ditubuhkan pada tahun 1956 sebagai Kolej RIDA, kemudian ITM (1965), dan menjadi UiTM (1999)
 - Mempunyai lebih 30 kampus di seluruh Malaysia
 - Menawarkan program diploma, ijazah sarjana muda, pascasiswazah
 - Moto: "Usaha, Taqwa, Mulia"
@@ -101,11 +101,11 @@ Sentiasa berikan jawapan yang membantu, tepat, dan dalam Bahasa Melayu (Malay). 
 RAG_INSTRUCTIONS = """
 
 [ARAHAN RAG]
-Anda mempunyai akses kepada pangkalan pengetahuan UITM. Gunakan maklumat yang diberikan dalam [KONTEKS] di bawah untuk menjawab soalan pengguna.
+Anda mempunyai akses kepada pangkalan pengetahuan UiTM. Gunakan maklumat yang diberikan dalam [KONTEKS] di bawah untuk menjawab soalan pengguna.
 
 Garis panduan penggunaan konteks:
 1. Gunakan maklumat daripada [KONTEKS] untuk menjawab soalan dengan tepat
-2. Jika maklumat tidak mencukupi dalam konteks, gunakan pengetahuan umum anda tentang UITM
+2. Jika maklumat tidak mencukupi dalam konteks, gunakan pengetahuan umum anda tentang UiTM
 3. Jika anda tidak pasti, nyatakan dengan jujur dan cadangkan pengguna menghubungi pejabat berkaitan
 4. Rujuk sumber dokumen jika menggunakan maklumat spesifik daripada konteks
 5. Pastikan jawapan adalah dalam Bahasa Melayu yang betul
@@ -118,10 +118,10 @@ Garis panduan penggunaan konteks:
 # Creator information configuration
 CREATOR_INFO = {
     "name": "Ts. Zaaba Bin Ahmad",
-    "title": "Pencipta AI Receptionist UITM",
+    "title": "Pencipta AI Receptionist UiTM",
     "image_path": "/static/assets/Zaaba-Ahmad.webp",
     "google_scholar": "https://scholar.google.com/citations?user=PGhzO-oAAAAJ&hl=en",
-    "description": "AI ini dicipta oleh **Ts. Zaaba Bin Ahmad**. Beliau adalah seorang pensyarah dan penyelidik di UITM yang mengkhusus dalam pembangunan sistem pintar dan aplikasi berasaskan AI.",
+    "description": "AI ini dicipta oleh **Ts. Zaaba Bin Ahmad**. Beliau adalah seorang pensyarah dan penyelidik di UiTM yang mengkhusus dalam pembangunan sistem pintar dan aplikasi berasaskan AI.",
     "triggers": [
         # Malay triggers
         "siapa pencipta", "siapa pembangun", "siapa yang buat", "siapa yang cipta",
@@ -280,7 +280,7 @@ def chat():
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://uitm.edu.my",
-        "X-Title": "UITM Receptionist AI"
+        "X-Title": "UiTM Receptionist AI"
     }
     
     payload = {
