@@ -464,6 +464,10 @@ function formatMessageContent(content) {
         .replace(/`(.*?)`/g, '<code>$1</code>')
         // Convert markdown links [text](url) to HTML anchor tags
         .replace(/\[([^\]]+)\]\((https?:\/\/[^\s)]+)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="message-link">$1</a>')
+        // Style email addresses
+        .replace(/([a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,})/g, '<span class="message-email">$1</span>')
+        // Style phone numbers (various formats)
+        .replace(/((\+?6?0)?[\s-]?\d{2,4}[\s-]?\d{3,4}[\s-]?\d{3,4})/g, '<span class="message-phone">$1</span>')
         .replace(/\n/g, '<br>');
 }
 
@@ -1040,7 +1044,11 @@ async function playTTS(text) {
         .replace(/\[([^\]]+)\]\([^)]+\)/g, '$1')
         // Remove any remaining URL-like patterns
         .replace(/www\.[^\s]+/g, '')
-        // Clean up extra spaces left by removed URLs
+        // Remove email addresses
+        .replace(/[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}/g, '')
+        // Remove phone numbers (various formats: 03-5544 4444, +6012-345 6789, etc.)
+        .replace(/(\+?6?0)?[\s-]?\d{2,4}[\s-]?\d{3,4}[\s-]?\d{3,4}/g, '')
+        // Clean up extra spaces left by removed content
         .replace(/\s+/g, ' ')
         .trim()
         .substring(0, 4000); // Limit to 4000 chars
