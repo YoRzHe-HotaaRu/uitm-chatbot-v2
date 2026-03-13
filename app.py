@@ -972,21 +972,12 @@ def vts_play_lip_sync():
                 if not vts_gesture_animator:
                     vts_gesture_animator = get_gesture_animator(vts_connector)
                 
-                import random
                 import time
                 
-                # 1. Play explain_hand_left or explain_hand_right (one-shot)
-                hand_gesture = random.choice([GestureType.EXPLAIN_LEFT, GestureType.EXPLAIN_RIGHT])
-                run_in_vts_loop(vts_gesture_animator.trigger_gesture(hand_gesture, force=True))
-                print(f"[VTS] Triggered explain hand: {hand_gesture.value} (tokens={token_count})")
-                
-                # Wait 1s for the hand animation to play out
-                time.sleep(1.0)
-                
-                # 2. Toggle explain_arm_gesture ON (sustained pose while talking)
+                # Toggle explain_arm_gesture ON (sustained pose while talking)
                 run_in_vts_loop(vts_gesture_animator.trigger_gesture(GestureType.EXPLAIN_ARM, force=True))
                 explain_gesture_active = vts_gesture_animator.is_toggle_active(GestureType.EXPLAIN_ARM)
-                print(f"[VTS] Explain arm gesture toggled ON: {explain_gesture_active}")
+                print(f"[VTS] Explain arm gesture toggled ON: {explain_gesture_active} (tokens={token_count})")
                 
             except Exception as e:
                 print(f"[VTS] Error triggering explain gestures: {e}")
