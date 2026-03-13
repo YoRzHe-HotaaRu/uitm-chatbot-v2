@@ -1,0 +1,184 @@
+{
+    "model_settings": {
+        "physics": {
+            "use_physics": true,
+            "legacy_physics": false,
+            "framerate_mode": "Match App FPS",
+            "physics_strength": 50,
+            "wind_strength": 0,
+            "dragging_physics": 10
+        },
+        "face_rotation": {
+            "parameter_1": {
+                "name": "Face Left/Right Rotation",
+                "input": "FaceAngleX",
+                "output": "ParamAngleX",
+                "smoothing": 15,
+                "auto_blinking": false,
+                "auto_breathing": false
+            },
+            "parameter_2": {
+                "name": "Face Up/Down Rotation",
+                "input": "FaceAngleY",
+                "output": "ParamAngleY",
+                "smoothing": 15,
+                "auto_blinking": false,
+                "auto_breathing": false
+            },
+            "parameter_3": {
+                "name": "Face Lean Rotation",
+                "input": "FaceAngleZ",
+                "output": "ParamAngleZ",
+                "smoothing": 30,
+                "auto_blinking": false,
+                "auto_breathing": true
+            }
+        },
+        "eye_parameters": {
+            "parameter_4": {
+                "name": "Eye Open Left",
+                "input": "EyeOpenLeft",
+                "output": "ParamEyeLOpen",
+                "smoothing": null,
+                "auto_blinking": true,
+                "auto_breathing": false
+            },
+            "parameter_5": {
+                "name": "Eye Smile Left",
+                "input": "MouthSmile",
+                "output": "ParamEyeLSmile",
+                "smoothing": null,
+                "auto_blinking": false,
+                "auto_breathing": false
+            },
+            "parameter_6": {
+                "name": "Eye Open Right",
+                "input": "EyeOpenRight",
+                "output": "ParamEyeROpen",
+                "smoothing": 10,
+                "auto_blinking": true,
+                "auto_breathing": false
+            },
+            "parameter_7": {
+                "name": "Eye Smile Right",
+                "input": "MouthSmile",
+                "output": "ParamEyeRSmile",
+                "smoothing": null,
+                "auto_blinking": false,
+                "auto_breathing": false
+            },
+            "parameter_8": {
+                "name": "Eye X",
+                "input": "EyeRightX",
+                "output": "ParamEyeBallX",
+                "smoothing": 8,
+                "auto_blinking": false,
+                "auto_breathing": false
+            },
+            "parameter_9": {
+                "name": "Eye Y",
+                "input": "EyeRightY",
+                "output": "ParamEyeBallY",
+                "smoothing": null,
+                "auto_blinking": false,
+                "auto_breathing": false
+            }
+        },
+        "brow_parameters": {
+            "parameter_10": {
+                "name": "Brow Height Left",
+                "input": "Brows",
+                "output": "ParamBrowLY",
+                "smoothing": null,
+                "auto_blinking": true,
+                "auto_breathing": true
+            },
+            "parameter_11": {
+                "name": "Brow Height Right",
+                "input": "Brows",
+                "output": "ParamBrowRY",
+                "smoothing": 10,
+                "auto_blinking": true,
+                "auto_breathing": false
+            },
+            "parameter_12": {
+                "name": "Brow Form Left",
+                "input": "Brows",
+                "output": "ParamBrowLForm",
+                "smoothing": null,
+                "auto_blinking": true,
+                "auto_breathing": false
+            },
+            "parameter_13": {
+                "name": "Brow Form Right",
+                "input": "Brows",
+                "output": "ParamBrowRFForm",
+                "smoothing": 15,
+                "auto_blinking": true,
+                "auto_breathing": false
+            }
+        },
+        "mouth_parameters": {
+            "parameter_14": {
+                "name": "Mouth Open",
+                "input": "MouthOpen",
+                "output": "ParamMouthOpenY",
+                "smoothing": null,
+                "auto_blinking": false,
+                "auto_breathing": false
+            },
+            "parameter_15": {
+                "name": "Blush when smiling",
+                "input": "MouthSmile",
+                "output": "ParamCheek",
+                "smoothing": 45,
+                "auto_blinking": false,
+                "auto_breathing": false
+            }
+        },
+        "body_parameters": {
+            "parameter_16": {
+                "name": "Body Rotation X",
+                "input": "FaceAngleX",
+                "output": "ParamBodyAngleX",
+                "smoothing": 20,
+                "auto_blinking": false,
+                "auto_breathing": false
+            },
+            "parameter_17": {
+                "name": "Body Rotation Y",
+                "input": "FaceAngleY",
+                "output": "ParamBodyAngleY",
+                "smoothing": 20,
+                "auto_blinking": false,
+                "auto_breathing": false
+            },
+            "parameter_18": {
+                "name": "Body Rotation Z",
+                "input": "FaceAngleZ",
+                "output": "ParamBodyAngleZ",
+                "smoothing": 20,
+                "auto_blinking": false,
+                "auto_breathing": true
+            }
+        },
+        "breathing_parameters": {
+            "parameter_19": {
+                "name": "Auto Breath",
+                "input": "Breath",
+                "output": "ParamBreath",
+                "smoothing": 0,
+                "auto_blinking": false,
+                "auto_breathing": true
+            },
+            "parameter_20": {
+                "name": "Tie Move",
+                "input": "Breath",
+                "output": "ParamTieMove",
+                "smoothing": 20,
+                "auto_blinking": false,
+                "auto_breathing": true
+            }
+        }
+    }
+}

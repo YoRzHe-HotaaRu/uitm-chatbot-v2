@@ -55,6 +55,7 @@ class IdleAnimator:
         
         # Animation state
         self._running = False
+        self._paused = False  # When True, stops sending parameters to VTS
         self._tasks: list[asyncio.Task] = []
         self._start_time: float = 0
         
@@ -197,6 +198,12 @@ class IdleAnimator:
         
         while self._running:
             try:
+                # When paused (avatar is speaking), skip sending parameters
+                # so we don't conflict with the gesture controller
+                if self._paused:
+                    await asyncio.sleep(0.1)  # Check less frequently while paused
+                    continue
+                
                 # Smoothly interpolate current values toward targets
                 self._current_x += (self._target_x - self._current_x) * smoothing
                 self._current_y += (self._target_y - self._current_y) * smoothing
@@ -244,15 +251,19 @@ class IdleAnimator:
             print(f"[IdleAnimator] Error setting parameters: {e}")
             
     def pause(self):
-        """Pause idle animations (e.g., when starting to talk)."""
+        """Pause idle animations (e.g., when starting to talk).
+        Completely stops sending parameters to VTS so the gesture
+        controller has full control during speech."""
+        self._paused = True
         self._target_x = 0.0
         self._target_y = 0.0
         self._target_z = 0.0
+        print("[IdleAnimator] Paused — gesture controller takes over")
         
     def resume(self):
         """Resume idle animations (e.g., when done talking)."""
-        # Animations will naturally resume
-        pass
+        self._paused = False
+        print("[IdleAnimator] Resumed — idle animations active")
 
 
 # Global instance

@@ -265,6 +265,8 @@ class LipSyncPlayer:
                             playback_speed: float = 1.0, text: str = ""):
         """
         Play lip sync data with proper timing.
+        Merges mouth parameters with gesture controller parameters (body, brow, eye)
+        into a single coordinated set_parameters call per frame.
         
         Args:
             vts_connector: VTSConnector instance
@@ -281,19 +283,18 @@ class LipSyncPlayer:
         self._stop_flag = False
         loop = asyncio.get_running_loop()
         start_time = loop.time()
+        last_frame_time = start_time
         
         # Pause idle animations while talking
         if self._idle_animator:
             self._idle_animator.pause()
             
         # Start gesture controller with emotion detection
+        gesture_active = False
         if self._gesture_controller and LIVELINESS_AVAILABLE:
             emotion = detect_emotion_from_text(text)
             await self._gesture_controller.start_speaking(text, emotion)
-            # Start gesture update loop
-            gesture_task = asyncio.create_task(self._gesture_controller.update_loop())
-        else:
-            gesture_task = None
+            gesture_active = True
         
         print(f"[LipSync] Playing {len(lip_sync_data)} frames, speed={playback_speed}")
         
@@ -307,31 +308,61 @@ class LipSyncPlayer:
             adjusted_timestamp = timestamp / playback_speed
                 
             # Wait until it's time to send this frame
-            current_time = loop.time() - start_time
+            now = loop.time()
+            current_time = now - start_time
             wait_time = adjusted_timestamp - current_time
             
             if wait_time > 0:
                 await asyncio.sleep(wait_time)
             
-            # Send mouth parameter
+            # Compute delta time for gesture controller
+            now = loop.time()
+            dt = now - last_frame_time
+            last_frame_time = now
+            
+            # Build mouth parameter (this is the lip sync — untouched)
             params = self.analyzer.get_mouth_parameters(mouth_value)
+            
+            # Merge gesture controller parameters (head, body, brow, eye)
+            # The gesture controller computes its frame inline here instead of
+            # in a separate update loop, avoiding conflicting parameter writes.
+            if gesture_active and self._gesture_controller:
+                t = now - start_time
+                self._gesture_controller._compute_frame(t, dt)
+                gesture_params = self._gesture_controller.get_all_parameters()
+                params.extend(gesture_params)
+            
             success = await vts_connector.set_parameters(params)
             
             # Log every 30 frames for debugging
             if frame_count % 30 == 0:
-                print(f"[LipSync] Frame {frame_count}: value={mouth_value:.3f}, param={self.analyzer.PARAM_NAME}, success={success}")
+                param_count = len(params)
+                print(f"[LipSync] Frame {frame_count}: mouth={mouth_value:.3f}, params={param_count}, success={success}")
             frame_count += 1
         
-        # Stop gesture controller
+        # Stop gesture controller (will ramp down smoothly)
         if self._gesture_controller:
             await self._gesture_controller.stop_speaking()
             
-        if gesture_task:
-            gesture_task.cancel()
-            try:
-                await gesture_task
-            except asyncio.CancelledError:
-                pass
+            # Allow a few frames of ramp-down for smooth transition back to idle
+            if gesture_active:
+                ramp_frames = 18  # ~0.6 seconds at 30fps
+                for _ in range(ramp_frames):
+                    now = loop.time()
+                    dt = now - last_frame_time
+                    last_frame_time = now
+                    t = now - start_time
+                    
+                    self._gesture_controller._compute_frame(t, dt)
+                    params = self.analyzer.get_mouth_parameters(0.0)
+                    gesture_params = self._gesture_controller.get_all_parameters()
+                    params.extend(gesture_params)
+                    await vts_connector.set_parameters(params)
+                    await asyncio.sleep(0.033)
+                    
+                    # Stop early if fully ramped down
+                    if self._gesture_controller._activity_level < 0.01:
+                        break
         
         # Close mouth when done
         params = self.analyzer.get_mouth_parameters(0.0)
