@@ -1195,12 +1195,12 @@ function scheduleStartupAudio() {
             return;
         }
 
-        console.log('[Startup Audio] User interaction detected, scheduling playback in 3 seconds');
+        console.log('[Startup Audio] User interaction detected, scheduling playback in 1.5 seconds');
 
-        // Wait 3 seconds after first interaction
+        // Wait 1.5 seconds after first interaction
         setTimeout(async () => {
             await playStartupAudio();
-        }, 3000);
+        }, 1500);
     };
 
     // Listen for first user interaction
