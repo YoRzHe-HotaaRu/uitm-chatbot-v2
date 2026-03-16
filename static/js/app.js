@@ -1271,17 +1271,22 @@ async function playStartupAudio() {
             });
         }
 
-        // Store lip sync data and start playback (NOT awaited - runs in parallel with audio)
+        // Store lip sync data and start playback
         if (data.lip_sync && data.lip_sync.length > 0 && includeLipSync) {
             state.vts.lipSyncData = data.lip_sync;
             state.vts.currentAudio = audio;
 
-            // Start lip sync playback WITHOUT await - so it runs in parallel with audio.play()
+            // Start lip-sync first (fire and forget - don't await)
             playLipSync(data.lip_sync, audio, '');
-            console.log('[Startup Audio] Lip-sync started');
+
+            // Wait a small delay for backend to receive and start lip-sync
+            // This compensates for network latency before starting audio
+            await new Promise(resolve => setTimeout(resolve, 80));
+
+            console.log('[Startup Audio] Lip-sync started, playing audio now');
         }
 
-        // Play audio immediately (in parallel with lip-sync)
+        // Play audio (slightly delayed to sync with lip-sync)
         audio.play().catch(err => {
             console.error('[Startup Audio] Playback failed:', err);
         });
