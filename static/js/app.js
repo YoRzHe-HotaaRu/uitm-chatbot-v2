@@ -1264,11 +1264,21 @@ async function playStartupAudio() {
 
         console.log(`[Startup Audio] Loaded ${data.duration.toFixed(2)}s audio, ${data.lip_sync.length} lip-sync frames`);
 
-        // Trigger wave_hello gesture before playing audio
+        // Step 1: Trigger wave_hello gesture
         if (state.vts.enabled && state.vts.connected) {
-            triggerVTSGesture('wave_hello').catch(err => {
-                console.error('[Startup Audio] Gesture trigger failed:', err);
+            await triggerVTSGesture('wave_hello').catch(err => {
+                console.error('[Startup Audio] Wave gesture failed:', err);
             });
+            console.log('[Startup Audio] Wave hello triggered');
+
+            // Wait for wave animation to complete (~1.5 seconds)
+            await new Promise(resolve => setTimeout(resolve, 1500));
+
+            // Step 2: Toggle explain_arm_gesture ON
+            await triggerVTSGesture('explain_arm_gesture').catch(err => {
+                console.error('[Startup Audio] Explain arm toggle failed:', err);
+            });
+            console.log('[Startup Audio] Explain arm gesture ON');
         }
 
         // Store lip sync data and start playback
@@ -1291,12 +1301,21 @@ async function playStartupAudio() {
             console.error('[Startup Audio] Playback failed:', err);
         });
 
-        // Cleanup URL after playback
+        // Cleanup URL after playback and toggle explain_arm OFF
         audio.onended = () => {
             URL.revokeObjectURL(audioUrl);
             state.vts.lipSyncData = null;
             state.vts.currentAudio = null;
             console.log('[Startup Audio] Playback completed');
+
+            // Step 3: Toggle explain_arm_gesture OFF after speech ends
+            if (state.vts.enabled && state.vts.connected) {
+                triggerVTSGesture('explain_arm_gesture').then(() => {
+                    console.log('[Startup Audio] Explain arm gesture OFF');
+                }).catch(err => {
+                    console.error('[Startup Audio] Explain arm off failed:', err);
+                });
+            }
         };
 
     } catch (error) {
