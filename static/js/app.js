@@ -1195,12 +1195,12 @@ function scheduleStartupAudio() {
             return;
         }
 
-        console.log('[Startup Audio] User interaction detected, scheduling playback in 5 seconds');
+        console.log('[Startup Audio] User interaction detected, scheduling playback in 3 seconds');
 
-        // Wait 5 seconds after first interaction
+        // Wait 3 seconds after first interaction
         setTimeout(async () => {
             await playStartupAudio();
-        }, 5000);
+        }, 3000);
     };
 
     // Listen for first user interaction
@@ -1291,15 +1291,15 @@ async function playStartupAudio() {
             console.error('[Startup Audio] Playback failed:', err);
         });
 
-        // Step 2: After wave completes (~1.5s), toggle explain_arm_gesture ON
-        // Use force: true to bypass cooldown
+        // Step 2: After wave completes (~2.5s), toggle explain_arm_gesture ON
+        // Delay ensures cooldown (2s) has passed since wave_hello
         if (state.vts.enabled && state.vts.connected) {
             setTimeout(async () => {
-                await triggerVTSGesture('explain_arm_gesture', true).catch(err => {
+                await triggerVTSGesture('explain_arm_gesture').catch(err => {
                     console.error('[Startup Audio] Explain arm toggle failed:', err);
                 });
                 console.log('[Startup Audio] Explain arm gesture ON');
-            }, 1500);
+            }, 2500);
         }
 
         // Cleanup URL after playback and toggle explain_arm OFF
