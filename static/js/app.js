@@ -172,6 +172,9 @@ function initializeApp() {
 
     // Initialize performance monitor
     initializePerfMonitor();
+
+    // Schedule startup audio to play after user interaction + 5 seconds
+    scheduleStartupAudio();
 }
 
 // ========================================
@@ -1165,6 +1168,123 @@ async function playTTS(text) {
 
     } catch (error) {
         console.error('TTS error:', error);
+    }
+}
+
+// ========================================
+// STARTUP AUDIO
+// ========================================
+
+let startupAudioScheduled = false;
+
+/**
+ * Play startup greeting audio with lip-sync after user interaction.
+ * Waits for first user click, then plays audio after 5 seconds.
+ * Respects TTS toggle setting.
+ */
+function scheduleStartupAudio() {
+    if (startupAudioScheduled) return;
+    startupAudioScheduled = true;
+
+    // Wait for first user interaction
+    const waitForInteraction = () => {
+        // If TTS is disabled, don't play audio
+        if (!state.ttsEnabled) {
+            console.log('[Startup Audio] TTS disabled, skipping startup audio');
+            return;
+        }
+
+        console.log('[Startup Audio] User interaction detected, scheduling playback in 5 seconds');
+
+        // Wait 5 seconds after first interaction
+        setTimeout(async () => {
+            await playStartupAudio();
+        }, 5000);
+    };
+
+    // Listen for first user interaction
+    document.addEventListener('click', waitForInteraction, { once: true });
+    document.addEventListener('keydown', waitForInteraction, { once: true });
+}
+
+/**
+ * Fetch and play startup greeting audio with lip-sync.
+ */
+async function playStartupAudio() {
+    // Check if TTS is enabled
+    if (!state.ttsEnabled) {
+        console.log('[Startup Audio] TTS disabled, skipping playback');
+        return;
+    }
+
+    try {
+        console.log('[Startup Audio] Fetching startup audio...');
+
+        // Check if VTS is enabled and connected for lip-sync
+        const includeLipSync = state.vts.enabled && state.vts.connected;
+
+        const response = await fetch('/tts/play-startup-audio', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                include_lip_sync: includeLipSync
+            })
+        });
+
+        if (!response.ok) {
+            console.error('[Startup Audio] Request failed:', response.status);
+            return;
+        }
+
+        const data = await response.json();
+
+        // Decode base64 audio
+        const audioBytes = atob(data.audio);
+        const audioArray = new Uint8Array(audioBytes.length);
+        for (let i = 0; i < audioBytes.length; i++) {
+            audioArray[i] = audioBytes.charCodeAt(i);
+        }
+
+        const audioBlob = new Blob([audioArray], { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        console.log(`[Startup Audio] Loaded ${data.duration.toFixed(2)}s audio, ${data.lip_sync.length} lip-sync frames`);
+
+        // Trigger wave_hello gesture before playing audio
+        if (state.vts.enabled && state.vts.connected) {
+            triggerVTSGesture('wave_hello').catch(err => {
+                console.error('[Startup Audio] Gesture trigger failed:', err);
+            });
+        }
+
+        // Store lip sync data and start playback (NOT awaited - runs in parallel with audio)
+        if (data.lip_sync && data.lip_sync.length > 0 && includeLipSync) {
+            state.vts.lipSyncData = data.lip_sync;
+            state.vts.currentAudio = audio;
+
+            // Start lip sync playback WITHOUT await - so it runs in parallel with audio.play()
+            playLipSync(data.lip_sync, audio, '');
+            console.log('[Startup Audio] Lip-sync started');
+        }
+
+        // Play audio immediately (in parallel with lip-sync)
+        audio.play().catch(err => {
+            console.error('[Startup Audio] Playback failed:', err);
+        });
+
+        // Cleanup URL after playback
+        audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            state.vts.lipSyncData = null;
+            state.vts.currentAudio = null;
+            console.log('[Startup Audio] Playback completed');
+        };
+
+    } catch (error) {
+        console.error('[Startup Audio] Error:', error);
     }
 }
 

@@ -809,6 +809,90 @@ def text_to_speech_optimized():
         return jsonify({'error': str(e)}), 500
 
 
+@app.route('/tts/play-startup-audio', methods=['POST'])
+def play_startup_audio():
+    """
+    Play startup greeting audio with lip-sync data.
+    Reads the pre-recorded WAV file and generates lip-sync data for VTS.
+    """
+    global vts_idle_animator, vts_gesture_controller
+
+    if not MINIMAX_API_KEY:
+        return jsonify({'error': 'Minimax API key not configured'}), 500
+
+    if not TTS_OPTIMIZED_AVAILABLE:
+        return jsonify({'error': 'Optimized TTS not available'}), 500
+
+    data = request.get_json()
+    include_lip_sync = data.get('include_lip_sync', False) and VTS_ENABLED
+
+    # Path to startup audio file
+    startup_audio_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        'static',
+        'assets',
+        'voice_message',
+        'startup_greetings.wav'
+    )
+
+    # Check if file exists
+    if not os.path.exists(startup_audio_path):
+        print(f"[Startup Audio] File not found: {startup_audio_path}")
+        return jsonify({'error': 'Startup audio file not found'}), 404
+
+    try:
+        import time
+        start_time = time.time()
+
+        # Read the WAV file
+        with open(startup_audio_path, 'rb') as f:
+            audio_bytes = f.read()
+
+        # Generate lip-sync data if requested and VTS is available
+        all_lip_sync = []
+        if include_lip_sync and vts_audio_converter and vts_audio_converter.is_available:
+            try:
+                # Use parallel analyzer for lip-sync generation
+                parallel_analyzer = get_parallel_analyzer()
+
+                # Run async analysis synchronously
+                async def analyze_audio():
+                    return await parallel_analyzer.analyze_wav_bytes_parallel(audio_bytes)
+
+                lip_sync = asyncio.run(analyze_audio())
+                all_lip_sync = lip_sync if lip_sync else []
+                print(f"[Startup Audio] Generated {len(all_lip_sync)} lip-sync frames")
+            except Exception as e:
+                print(f"[Startup Audio] Lip-sync generation error: {e}")
+
+        # Get audio duration
+        duration = 0.0
+        if vts_audio_converter:
+            duration = vts_audio_converter.get_audio_duration(audio_bytes, 'wav') or 0.0
+
+        elapsed = time.time() - start_time
+        print(f"[Startup Audio] Loaded in {elapsed:.2f}s, {len(audio_bytes)} bytes, duration={duration:.2f}s")
+
+        # Encode audio to base64
+        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+
+        # Return response
+        return jsonify({
+            'audio': audio_base64,
+            'audio_format': 'wav',
+            'lip_sync': all_lip_sync,
+            'duration': duration,
+            'vts_enabled': VTS_ENABLED,
+            'processing_time': elapsed
+        })
+
+    except Exception as e:
+        print(f"[Startup Audio] Error: {e}")
+        import traceback
+        traceback.print_exc()
+        return jsonify({'error': str(e)}), 500
+
+
 @app.route('/vts/status', methods=['GET'])
 def vts_status():
     """
