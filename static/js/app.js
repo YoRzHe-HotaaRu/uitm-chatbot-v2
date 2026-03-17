@@ -1921,8 +1921,8 @@ async function sendAudioMessage(base64Audio) {
     // Add user message to UI with voice indicator
     addMessage('user', '[Mesej Suara]', null, false, null, true);
 
-    // Save user message to state
-    state.messages.push({ role: 'user', content: '[Mesej Suara]' });
+    // Save user message to state (with isVoice flag for remote sync)
+    state.messages.push({ role: 'user', content: '[Mesej Suara]', isVoice: true });
 
     // Sync user message to remote devices (Master mode)
     if (state.remote.role === 'master' && state.remote.socket && state.remote.connected) {
@@ -1933,30 +1933,52 @@ async function sendAudioMessage(base64Audio) {
         console.log('[Remote/Master] Synced voice message to remote devices');
     }
 
-    // Prepare multimodal message
-    const multimodalMessage = {
-        role: 'user',
-        content: [
-            {
-                type: 'text',
-                text: 'Sila transkripsi mesej suara ini dan jawab.'
-            },
-            {
-                type: 'input_audio',
-                input_audio: {
-                    data: base64Audio,
-                    format: 'webm'
-                }
-            }
-        ]
-    };
-
-    // Send to API
     try {
-        await sendToAPIWithMessage(multimodalMessage);
+        // Step 1: Transcribe audio using dedicated transcription endpoint
+        console.log('[Voice] Transcribing audio...');
+        elements.inputHint.textContent = 'Mentranskripsi audio...';
+
+        const transcribeResponse = await fetch('/transcribe', {
+            method: 'POST',
+            headers: {
+                'Content-Type': 'application/json'
+            },
+            body: JSON.stringify({
+                audio: base64Audio,
+                format: 'webm'
+            })
+        });
+
+        if (!transcribeResponse.ok) {
+            throw new Error(`Transcription failed: ${transcribeResponse.status}`);
+        }
+
+        const transcribeResult = await transcribeResponse.json();
+
+        if (!transcribeResult.success || !transcribeResult.text) {
+            throw new Error('No transcription returned');
+        }
+
+        const transcribedText = transcribeResult.text;
+        console.log('[Voice] Transcribed:', transcribedText);
+
+        // Step 2: Send transcribed text through normal chat flow (with RAG)
+        elements.inputHint.textContent = 'Menghantar ke AI...';
+
+        // Update the message in state with actual transcribed text
+        // This is what the API will receive (RAG will work now!)
+        state.messages[state.messages.length - 1] = {
+            role: 'user',
+            content: transcribedText,
+            isVoice: true
+        };
+
+        // Send to API using normal flow (RAG enabled!)
+        await sendToAPI();
+
     } catch (error) {
-        console.error('Error sending audio message:', error);
-        addErrorMessage('Ralat menghantar mesej audio. Sila cuba lagi.');
+        console.error('Error processing audio message:', error);
+        addErrorMessage('Ralat memproses mesej audio. Sila cuba lagi.');
     }
 
     // Hide sending state

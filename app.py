@@ -50,6 +50,10 @@ OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
 DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'google/gemini-3.1-flash-lite-preview')
 
+# Transcription Configuration (separate API key for audio transcription)
+TRANSCRIPTION_API_KEY = os.getenv('TRANSCRIPTION_API_KEY', OPENROUTER_API_KEY)
+TRANSCRIPTION_MODEL = os.getenv('TRANSCRIPTION_MODEL', 'google/gemini-2.5-flash-preview-05-20')
+
 # Minimax TTS Configuration
 MINIMAX_API_KEY = os.getenv('MINIMAX_API_KEY')
 MINIMAX_TTS_MODEL = os.getenv('MINIMAX_TTS_MODEL', 'speech-2.8-turbo')
@@ -482,11 +486,11 @@ def get_models():
     """Get available models from OpenRouter"""
     if not OPENROUTER_API_KEY:
         return jsonify({'error': 'OpenRouter API key not configured'}), 500
-    
+
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}"
     }
-    
+
     try:
         response = requests.get(
             f"{OPENROUTER_BASE_URL}/models",
@@ -495,6 +499,85 @@ def get_models():
         return jsonify(response.json())
     except Exception as e:
         return jsonify({'error': str(e)}), 500
+
+
+@app.route('/transcribe', methods=['POST'])
+def transcribe_audio():
+    """
+    Transcribe audio using a dedicated transcription model.
+    Uses separate API key to not share with main chat model.
+    """
+    if not TRANSCRIPTION_API_KEY:
+        return jsonify({'error': 'Transcription API key not configured'}), 500
+
+    try:
+        data = request.get_json()
+
+        if not data or 'audio' not in data:
+            return jsonify({'error': 'No audio data provided'}), 400
+
+        audio_data = data['audio']  # Base64 encoded audio
+        audio_format = data.get('format', 'webm')
+
+        # Build transcription request
+        # Gemini accepts audio natively
+        transcription_request = {
+            "model": TRANSCRIPTION_MODEL,
+            "messages": [
+                {
+                    "role": "user",
+                    "content": [
+                        {
+                            "type": "text",
+                            "text": "Transkripsikan audio ini kepada teks dalam Bahasa Melayu. Hanya berikan teks transkripsi, tiada komen atau penjelasan tambahan."
+                        },
+                        {
+                            "type": "input_audio",
+                            "input_audio": {
+                                "data": audio_data,
+                                "format": audio_format
+                            }
+                        }
+                    ]
+                }
+            ],
+            "max_tokens": 1000
+        }
+
+        headers = {
+            "Authorization": f"Bearer {TRANSCRIPTION_API_KEY}",
+            "Content-Type": "application/json",
+            "HTTP-Referer": "https://uitm.edu.my",
+            "X-Title": "UiTM Receptionist AI - Transcription"
+        }
+
+        response = requests.post(
+            f"{OPENROUTER_BASE_URL}/chat/completions",
+            headers=headers,
+            json=transcription_request,
+            timeout=30
+        )
+
+        if response.status_code != 200:
+            print(f"[Transcription] API error: {response.status_code} - {response.text}")
+            return jsonify({'error': f'Transcription API error: {response.status_code}'}), 500
+
+        result = response.json()
+        transcribed_text = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+
+        if not transcribed_text:
+            return jsonify({'error': 'No transcription returned'}), 500
+
+        print(f"[Transcription] Transcribed: {transcribed_text[:100]}...")
+
+        return jsonify({
+            'success': True,
+            'text': transcribed_text.strip()
+        })
+
+    except Exception as e:
+        print(f"[Transcription] Error: {e}")
+        return jsonify({'error': f'Transcription error: {str(e)}'}), 500
 
 
 # RAG API Endpoints
