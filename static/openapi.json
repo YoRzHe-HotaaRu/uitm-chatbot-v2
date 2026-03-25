@@ -1,0 +1,1237 @@
+{
+  "openapi": "3.0.3",
+  "info": {
+    "title": "UiTM AI Receptionist API",
+    "description": "Pembantu AI UiTM - Flask backend API for the UiTM chatbot with RAG system, Text-to-Speech (TTS) via Minimax API, and VTube Studio integration for Live2D avatar lip-sync and gestures.",
+    "version": "1.0.0",
+    "contact": {
+      "name": "UiTM AI Receptionist"
+    }
+  },
+  "servers": [
+    {
+      "url": "http://localhost:5000",
+      "description": "Local development server"
+    }
+  ],
+  "tags": [
+    { "name": "Chat", "description": "AI chat and model endpoints" },
+    { "name": "Audio", "description": "Audio transcription endpoints" },
+    { "name": "Knowledge (RAG)", "description": "RAG knowledge base management" },
+    { "name": "Images", "description": "Knowledge base image search" },
+    { "name": "TTS", "description": "Text-to-Speech generation" },
+    { "name": "VTube Studio", "description": "VTube Studio Live2D avatar control" },
+    { "name": "WebSocket", "description": "Socket.IO events for real-time device communication" }
+  ],
+  "paths": {
+    "/": {
+      "get": {
+        "tags": ["Chat"],
+        "summary": "Main UI",
+        "description": "Renders the main chat interface HTML page.",
+        "operationId": "getIndex",
+        "responses": {
+          "200": {
+            "description": "HTML page",
+            "content": {
+              "text/html": {
+                "schema": { "type": "string" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/chat": {
+      "post": {
+        "tags": ["Chat"],
+        "summary": "Chat with AI",
+        "description": "Main chat endpoint. Sends messages to the AI model via OpenRouter API. Supports SSE streaming and multimodal input (text + audio). Automatically detects creator-related questions and can use RAG for knowledge-augmented responses.",
+        "operationId": "chat",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/ChatRequest" },
+              "examples": {
+                "simple": {
+                  "summary": "Simple text message",
+                  "value": {
+                    "messages": [{ "role": "user", "content": "What is UiTM?" }],
+                    "model": "google/gemini-3.1-flash-lite-preview",
+                    "stream": true
+                  }
+                },
+                "multimodal": {
+                  "summary": "Multimodal message with audio",
+                  "value": {
+                    "messages": [{
+                      "role": "user",
+                      "content": [
+                        { "type": "text", "text": "transcribed text" },
+                        { "type": "input_audio", "input_audio": { "data": "base64audio...", "format": "webm" } }
+                      ]
+                    }],
+                    "stream": true
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "AI response (streaming SSE or JSON)",
+            "headers": {
+              "Content-Type": { "schema": { "type": "string", "example": "text/plain" } },
+              "Cache-Control": { "schema": { "type": "string", "example": "no-cache" } },
+              "X-Accel-Buffering": { "schema": { "type": "string", "example": "no" } }
+            },
+            "content": {
+              "text/plain": {
+                "schema": {
+                  "type": "string",
+                  "description": "SSE stream. Each event: `data: {json}\\n\\n`. Final event: `data: [DONE]\\n\\n`"
+                }
+              },
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ChatResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/models": {
+      "get": {
+        "tags": ["Chat"],
+        "summary": "List available AI models",
+        "description": "Returns the list of available AI models from OpenRouter API.",
+        "operationId": "getModels",
+        "responses": {
+          "200": {
+            "description": "List of models (proxied from OpenRouter)",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ModelsResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/transcribe": {
+      "post": {
+        "tags": ["Audio"],
+        "summary": "Transcribe audio",
+        "description": "Transcribes base64-encoded audio to text using a transcription model via OpenRouter API. Supports webm format by default.",
+        "operationId": "transcribeAudio",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TranscribeRequest" },
+              "example": {
+                "audio": "base64EncodedAudioString",
+                "format": "webm"
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Transcription result",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TranscribeResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Bad request - no audio data",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/search": {
+      "get": {
+        "tags": ["Knowledge (RAG)"],
+        "summary": "Search knowledge base",
+        "description": "Search the RAG knowledge base using keyword matching (lightweight mode) or semantic search (advanced mode). Returns relevant document chunks ranked by relevance.",
+        "operationId": "knowledgeSearch",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Search query string",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "top_k",
+            "in": "query",
+            "required": false,
+            "description": "Number of results to return",
+            "schema": { "type": "integer", "default": 5 }
+          },
+          {
+            "name": "category",
+            "in": "query",
+            "required": false,
+            "description": "Filter by category name",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Search results",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/KnowledgeSearchResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing query parameter",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "RAG system not initialized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/categories": {
+      "get": {
+        "tags": ["Knowledge (RAG)"],
+        "summary": "List knowledge categories",
+        "description": "Returns all available categories in the knowledge base.",
+        "operationId": "knowledgeCategories",
+        "responses": {
+          "200": {
+            "description": "List of categories",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "categories": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "RAG system not initialized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/stats": {
+      "get": {
+        "tags": ["Knowledge (RAG)"],
+        "summary": "Knowledge base statistics",
+        "description": "Returns statistics about the knowledge base including document count, chunk count, and categories.",
+        "operationId": "knowledgeStats",
+        "responses": {
+          "200": {
+            "description": "Knowledge base statistics",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/KnowledgeStatsResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "RAG system not initialized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/knowledge/reload": {
+      "post": {
+        "tags": ["Knowledge (RAG)"],
+        "summary": "Reload knowledge base",
+        "description": "Reloads all documents from the knowledge_base/ directory and rebuilds the index.",
+        "operationId": "knowledgeReload",
+        "responses": {
+          "200": {
+            "description": "Reload successful",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "status": { "type": "string", "example": "success" },
+                    "message": { "type": "string", "example": "Knowledge base reloaded successfully" }
+                  }
+                }
+              }
+            }
+          },
+          "503": {
+            "description": "RAG system not initialized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/api/images/search": {
+      "get": {
+        "tags": ["Images"],
+        "summary": "Search knowledge base images",
+        "description": "Search for images in the knowledge base assets by query string.",
+        "operationId": "imagesSearch",
+        "parameters": [
+          {
+            "name": "q",
+            "in": "query",
+            "required": true,
+            "description": "Search query for images",
+            "schema": { "type": "string" }
+          },
+          {
+            "name": "limit",
+            "in": "query",
+            "required": false,
+            "description": "Maximum number of results",
+            "schema": { "type": "integer", "default": 5 }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Image search results",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ImageSearchResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Missing query parameter",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "503": {
+            "description": "Image handler not initialized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/static/kb_assets/{filename}": {
+      "get": {
+        "tags": ["Images"],
+        "summary": "Serve knowledge base asset",
+        "description": "Serves static image assets from the knowledge_base/assets/ directory.",
+        "operationId": "serveKbAssets",
+        "parameters": [
+          {
+            "name": "filename",
+            "in": "path",
+            "required": true,
+            "description": "Asset file path",
+            "schema": { "type": "string" }
+          }
+        ],
+        "responses": {
+          "200": {
+            "description": "Static file",
+            "content": {
+              "image/*": {
+                "schema": { "type": "string", "format": "binary" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tts": {
+      "post": {
+        "tags": ["TTS"],
+        "summary": "Text-to-Speech (Legacy)",
+        "description": "Generates speech audio from text using Minimax TTS API (legacy implementation). Returns raw MP3 bytes or JSON with lip-sync data if VTS integration is enabled.",
+        "operationId": "textToSpeech",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TTSRequest" },
+              "example": {
+                "text": "Selamat datang ke UiTM",
+                "include_lip_sync": false
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Audio response",
+            "content": {
+              "audio/mpeg": {
+                "schema": { "type": "string", "format": "binary" }
+              },
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TTSResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Text is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tts-optimized": {
+      "post": {
+        "tags": ["TTS"],
+        "summary": "Text-to-Speech (Optimized)",
+        "description": "Generates speech audio using the optimized TTS pipeline with WebSocket streaming, caching, and parallel lip-sync analysis. Always returns JSON with base64-encoded audio.",
+        "operationId": "textToSpeechOptimized",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": { "$ref": "#/components/schemas/TTSOptimizedRequest" },
+              "example": {
+                "text": "Selamat datang ke UiTM",
+                "include_lip_sync": false,
+                "streaming": true
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Optimized TTS response with audio and metadata",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/TTSOptimizedResponse" }
+              }
+            }
+          },
+          "400": {
+            "description": "Text is required",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/tts/play-startup-audio": {
+      "post": {
+        "tags": ["TTS"],
+        "summary": "Play startup greeting",
+        "description": "Returns the pre-recorded startup greeting audio (WAV format). The file is located at static/assets/voice_message/startup_greetings.wav.",
+        "operationId": "playStartupAudio",
+        "requestBody": {
+          "required": false,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "include_lip_sync": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Include lip-sync data (requires VTS_ENABLED)"
+                  }
+                }
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Startup audio response",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/StartupAudioResponse" }
+              }
+            }
+          },
+          "404": {
+            "description": "Startup audio file not found",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Server error",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vts/status": {
+      "get": {
+        "tags": ["VTube Studio"],
+        "summary": "VTS connection status",
+        "description": "Returns the current VTube Studio integration status including enabled state and connection state.",
+        "operationId": "vtsStatus",
+        "responses": {
+          "200": {
+            "description": "VTS status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": { "type": "boolean" },
+                    "connected": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vts/connect": {
+      "post": {
+        "tags": ["VTube Studio"],
+        "summary": "Connect to VTube Studio",
+        "description": "Establishes WebSocket connection to VTube Studio and starts idle animations on success.",
+        "operationId": "vtsConnect",
+        "responses": {
+          "200": {
+            "description": "Connection result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VTS integration disabled or not initialized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          },
+          "500": {
+            "description": "Connection failed",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vts/disconnect": {
+      "post": {
+        "tags": ["VTube Studio"],
+        "summary": "Disconnect from VTube Studio",
+        "description": "Stops idle animations and disconnects from VTube Studio.",
+        "operationId": "vtsDisconnect",
+        "responses": {
+          "200": {
+            "description": "Disconnection result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VTS integration disabled or not initialized",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vts/set_mouth": {
+      "post": {
+        "tags": ["VTube Studio"],
+        "summary": "Set mouth open value",
+        "description": "Sets the MouthOpen tracking parameter in VTube Studio for manual lip-sync control. Value range: 0.0 to 1.0.",
+        "operationId": "vtsSetMouth",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "properties": {
+                  "value": {
+                    "type": "number",
+                    "minimum": 0.0,
+                    "maximum": 1.0,
+                    "default": 0.0,
+                    "description": "Mouth open value (0.0 = closed, 1.0 = fully open)"
+                  }
+                }
+              },
+              "example": { "value": 0.5 }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Mouth value set",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VTS not enabled or connected",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vts/play_lip_sync": {
+      "post": {
+        "tags": ["VTube Studio"],
+        "summary": "Play lip-sync animation",
+        "description": "Plays lip-sync animation data on the VTS avatar. Pauses idle animations during playback, triggers talking gestures, and auto-triggers EXPLAIN_ARM gesture if token_count > 60. Has a 120-second timeout for long responses.",
+        "operationId": "vtsPlayLipSync",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["lip_sync"],
+                "properties": {
+                  "lip_sync": {
+                    "type": "array",
+                    "items": {
+                      "type": "array",
+                      "items": { "type": "number" },
+                      "minItems": 2,
+                      "maxItems": 2
+                    },
+                    "description": "Array of [timestamp_ms, amplitude] tuples"
+                  },
+                  "text": {
+                    "type": "string",
+                    "description": "AI response text for emotion detection"
+                  },
+                  "token_count": {
+                    "type": "integer",
+                    "description": "Token count for explain gesture triggering (triggers at >60)"
+                  }
+                }
+              },
+              "example": {
+                "lip_sync": [[0, 0.1], [100, 0.5], [200, 0.3]],
+                "text": "UiTM is Malaysia's largest university.",
+                "token_count": 75
+              }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Lip-sync playback result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "explain_triggered": { "type": "boolean", "description": "Whether explain arm gesture was triggered" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VTS not enabled or connected",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vts/trigger_gesture": {
+      "post": {
+        "tags": ["VTube Studio"],
+        "summary": "Trigger a gesture",
+        "description": "Triggers a specific gesture on the VTS avatar via hotkey activation.",
+        "operationId": "vtsTriggerGesture",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["gesture"],
+                "properties": {
+                  "gesture": {
+                    "type": "string",
+                    "enum": [
+                      "wave_hello",
+                      "nod_head_agree",
+                      "explain_arm_gesture",
+                      "explain_hand_left",
+                      "explain_hand_right",
+                      "idle_waiting"
+                    ],
+                    "description": "Gesture name to trigger"
+                  },
+                  "force": {
+                    "type": "boolean",
+                    "default": false,
+                    "description": "Force trigger even if another gesture is active"
+                  }
+                }
+              },
+              "example": { "gesture": "wave_hello" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Gesture triggered",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "gesture": { "type": "string" },
+                    "toggle_active": { "type": "boolean", "nullable": true, "description": "Only set for toggle gestures like EXPLAIN_ARM" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VTS not enabled/connected or unknown gesture",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vts/detect_and_trigger": {
+      "post": {
+        "tags": ["VTube Studio"],
+        "summary": "Auto-detect intent and trigger gesture",
+        "description": "Analyzes input text to detect user intent (greetings, thanks, etc.) and automatically triggers the appropriate gesture.",
+        "operationId": "vtsDetectAndTrigger",
+        "requestBody": {
+          "required": true,
+          "content": {
+            "application/json": {
+              "schema": {
+                "type": "object",
+                "required": ["text"],
+                "properties": {
+                  "text": {
+                    "type": "string",
+                    "description": "Input text to analyze for intent"
+                  },
+                  "source": {
+                    "type": "string",
+                    "enum": ["user", "ai"],
+                    "default": "user",
+                    "description": "Source of the text (user input or AI response)"
+                  }
+                }
+              },
+              "example": { "text": "Hello, thank you!", "source": "user" }
+            }
+          }
+        },
+        "responses": {
+          "200": {
+            "description": "Detection and trigger result",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "gesture": { "type": "string", "nullable": true },
+                    "source": { "type": "string" },
+                    "text_preview": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VTS not enabled/connected or missing text",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vts/disable_explain_gesture": {
+      "post": {
+        "tags": ["VTube Studio"],
+        "summary": "Disable explain gesture",
+        "description": "Disables the explain arm gesture toggle. Used to stop the explain animation after speech ends.",
+        "operationId": "vtsDisableExplainGesture",
+        "responses": {
+          "200": {
+            "description": "Explain gesture disabled",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "success": { "type": "boolean" },
+                    "message": { "type": "string" }
+                  }
+                }
+              }
+            }
+          },
+          "400": {
+            "description": "VTS not enabled or connected",
+            "content": {
+              "application/json": {
+                "schema": { "$ref": "#/components/schemas/ErrorResponse" }
+              }
+            }
+          }
+        }
+      }
+    },
+    "/vts/gesture_status": {
+      "get": {
+        "tags": ["VTube Studio"],
+        "summary": "Gesture animator status",
+        "description": "Returns the current status of the gesture animator including active toggles and available gestures.",
+        "operationId": "vtsGestureStatus",
+        "responses": {
+          "200": {
+            "description": "Gesture status",
+            "content": {
+              "application/json": {
+                "schema": {
+                  "type": "object",
+                  "properties": {
+                    "enabled": { "type": "boolean" },
+                    "initialized": { "type": "boolean" },
+                    "connected": { "type": "boolean" },
+                    "active_toggles": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    },
+                    "available_gestures": {
+                      "type": "array",
+                      "items": { "type": "string" }
+                    }
+                  }
+                }
+              }
+            }
+          }
+        }
+      }
+    }
+  },
+  "components": {
+    "schemas": {
+      "ErrorResponse": {
+        "type": "object",
+        "properties": {
+          "error": {
+            "type": "string",
+            "description": "Error message"
+          }
+        },
+        "required": ["error"]
+      },
+      "ChatRequest": {
+        "type": "object",
+        "required": ["messages"],
+        "properties": {
+          "messages": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/Message" },
+            "description": "Array of conversation messages"
+          },
+          "model": {
+            "type": "string",
+            "default": "google/gemini-3.1-flash-lite-preview",
+            "description": "AI model identifier (OpenRouter model ID)"
+          },
+          "stream": {
+            "type": "boolean",
+            "default": true,
+            "description": "Enable SSE streaming response"
+          }
+        }
+      },
+      "Message": {
+        "type": "object",
+        "required": ["role", "content"],
+        "properties": {
+          "role": {
+            "type": "string",
+            "enum": ["user", "assistant", "system"]
+          },
+          "content": {
+            "oneOf": [
+              { "type": "string" },
+              { "type": "array", "items": { "$ref": "#/components/schemas/MultimodalContent" } }
+            ],
+            "description": "Text string or multimodal content array"
+          }
+        }
+      },
+      "MultimodalContent": {
+        "oneOf": [
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["text"] },
+              "text": { "type": "string" }
+            }
+          },
+          {
+            "type": "object",
+            "properties": {
+              "type": { "type": "string", "enum": ["input_audio"] },
+              "input_audio": {
+                "type": "object",
+                "properties": {
+                  "data": { "type": "string", "description": "Base64-encoded audio" },
+                  "format": { "type": "string", "enum": ["webm", "wav", "mp3"] }
+                }
+              }
+            }
+          }
+        ]
+      },
+      "ChatResponse": {
+        "type": "object",
+        "properties": {
+          "content": { "type": "string", "description": "AI response text" },
+          "reasoning": { "type": "string", "description": "AI reasoning (if model supports it)" },
+          "role": { "type": "string", "example": "assistant" },
+          "rag_used": { "type": "boolean", "description": "Whether RAG was used for this response" },
+          "sources": {
+            "type": "array",
+            "items": { "type": "object" },
+            "description": "RAG source references"
+          }
+        }
+      },
+      "ModelsResponse": {
+        "type": "object",
+        "description": "Proxied response from OpenRouter /api/v1/models endpoint",
+        "properties": {
+          "data": {
+            "type": "array",
+            "items": {
+              "type": "object",
+              "properties": {
+                "id": { "type": "string" },
+                "name": { "type": "string" },
+                "description": { "type": "string" }
+              }
+            }
+          }
+        }
+      },
+      "TranscribeRequest": {
+        "type": "object",
+        "required": ["audio"],
+        "properties": {
+          "audio": {
+            "type": "string",
+            "description": "Base64-encoded audio data"
+          },
+          "format": {
+            "type": "string",
+            "default": "webm",
+            "description": "Audio format"
+          }
+        }
+      },
+      "TranscribeResponse": {
+        "type": "object",
+        "properties": {
+          "success": { "type": "boolean" },
+          "text": { "type": "string", "description": "Transcribed text" }
+        }
+      },
+      "KnowledgeSearchResponse": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "results": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/KnowledgeResult" }
+          },
+          "total": { "type": "integer" }
+        }
+      },
+      "KnowledgeResult": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "content": { "type": "string", "description": "Chunk content (truncated to 500 chars)" },
+          "doc_title": { "type": "string" },
+          "category": { "type": "string" },
+          "relevance": { "type": "number", "format": "float" }
+        }
+      },
+      "KnowledgeStatsResponse": {
+        "type": "object",
+        "description": "Knowledge base statistics including document count, chunk count, and categories",
+        "properties": {
+          "total_documents": { "type": "integer" },
+          "total_chunks": { "type": "integer" },
+          "categories": {
+            "type": "array",
+            "items": { "type": "string" }
+          }
+        }
+      },
+      "ImageSearchResponse": {
+        "type": "object",
+        "properties": {
+          "query": { "type": "string" },
+          "images": {
+            "type": "array",
+            "items": { "$ref": "#/components/schemas/ImageResult" }
+          }
+        }
+      },
+      "ImageResult": {
+        "type": "object",
+        "properties": {
+          "id": { "type": "string" },
+          "filename": { "type": "string" },
+          "description": { "type": "string" },
+          "category": { "type": "string" },
+          "url": { "type": "string", "description": "Static URL to the image" }
+        }
+      },
+      "TTSRequest": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Text to convert to speech"
+          },
+          "include_lip_sync": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include lip-sync data in response (requires VTS_ENABLED)"
+          }
+        }
+      },
+      "TTSResponse": {
+        "type": "object",
+        "description": "Returned when include_lip_sync is true. Otherwise raw MP3 bytes are returned.",
+        "properties": {
+          "audio": { "type": "string", "description": "Base64-encoded MP3 audio" },
+          "audio_format": { "type": "string", "example": "mp3" },
+          "lip_sync": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": { "type": "number" }
+            },
+            "description": "Array of [timestamp, amplitude] tuples"
+          },
+          "duration": { "type": "number", "format": "float" },
+          "expression": { "type": "string", "nullable": true },
+          "vts_enabled": { "type": "boolean" }
+        }
+      },
+      "TTSOptimizedRequest": {
+        "type": "object",
+        "required": ["text"],
+        "properties": {
+          "text": {
+            "type": "string",
+            "maxLength": 10000,
+            "description": "Text to convert to speech"
+          },
+          "include_lip_sync": {
+            "type": "boolean",
+            "default": false,
+            "description": "Include lip-sync data (requires VTS_ENABLED)"
+          },
+          "streaming": {
+            "type": "boolean",
+            "default": true,
+            "description": "Use WebSocket streaming for generation"
+          }
+        }
+      },
+      "TTSOptimizedResponse": {
+        "type": "object",
+        "properties": {
+          "audio": { "type": "string", "description": "Base64-encoded MP3 audio" },
+          "audio_format": { "type": "string", "example": "mp3" },
+          "lip_sync": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": { "type": "number" }
+            },
+            "description": "Array of [timestamp, amplitude] tuples"
+          },
+          "duration": { "type": "number", "format": "float" },
+          "expression": { "type": "string", "nullable": true },
+          "vts_enabled": { "type": "boolean" },
+          "processing_time": { "type": "number", "format": "float" },
+          "optimized": { "type": "boolean", "example": true }
+        }
+      },
+      "StartupAudioResponse": {
+        "type": "object",
+        "properties": {
+          "audio": { "type": "string", "description": "Base64-encoded WAV audio" },
+          "audio_format": { "type": "string", "example": "wav" },
+          "lip_sync": {
+            "type": "array",
+            "items": {
+              "type": "array",
+              "items": { "type": "number" }
+            }
+          },
+          "duration": { "type": "number", "format": "float" },
+          "vts_enabled": { "type": "boolean" },
+          "processing_time": { "type": "number", "format": "float" }
+        }
+      }
+    }
+  }
+}

@@ -9,7 +9,18 @@ import base64
 import requests
 import asyncio
 import threading
-from flask import Flask, render_template, request, jsonify, Response, stream_with_context, send_from_directory
+from flask import (
+    Flask,
+    render_template,
+    request,
+    jsonify,
+    Response,
+    stream_with_context,
+    send_from_directory,
+    session,
+    redirect,
+    url_for,
+)
 from flask_socketio import SocketIO, emit, join_room, leave_room, rooms
 from flask_cors import CORS
 from dotenv import load_dotenv
@@ -27,6 +38,7 @@ from vts import GestureAnimator, GestureType, get_gesture_animator
 # Import optimized TTS
 try:
     from tts_optimized import OptimizedMinimaxTTS, get_tts_instance, TTSChunk
+
     TTS_OPTIMIZED_AVAILABLE = True
 except ImportError:
     TTS_OPTIMIZED_AVAILABLE = False
@@ -36,41 +48,43 @@ except ImportError:
 load_dotenv()
 
 app = Flask(__name__)
-app.secret_key = os.getenv('FLASK_SECRET_KEY', 'uitm-chatbot-secret-key')
+app.secret_key = os.getenv("FLASK_SECRET_KEY", "uitm-chatbot-secret-key")
 
 # Initialize SocketIO for real-time communication between devices
-socketio = SocketIO(app, cors_allowed_origins="*", async_mode='threading')
+socketio = SocketIO(app, cors_allowed_origins="*", async_mode="threading")
 CORS(app)
 
 # Store connected devices by room
 connected_devices = {}  # {session_id: {'role': 'master'|'remote', 'room': str}}
 
 # OpenRouter Configuration
-OPENROUTER_API_KEY = os.getenv('OPENROUTER_API_KEY')
+OPENROUTER_API_KEY = os.getenv("OPENROUTER_API_KEY")
 OPENROUTER_BASE_URL = "https://openrouter.ai/api/v1"
-DEFAULT_MODEL = os.getenv('DEFAULT_MODEL', 'google/gemini-3.1-flash-lite-preview')
+DEFAULT_MODEL = os.getenv("DEFAULT_MODEL", "google/gemini-3.1-flash-lite-preview")
 
 # Transcription Configuration (separate API key for audio transcription)
-TRANSCRIPTION_API_KEY = os.getenv('TRANSCRIPTION_API_KEY', OPENROUTER_API_KEY)
-TRANSCRIPTION_MODEL = os.getenv('TRANSCRIPTION_MODEL', 'google/gemini-2.5-flash-preview-05-20')
+TRANSCRIPTION_API_KEY = os.getenv("TRANSCRIPTION_API_KEY", OPENROUTER_API_KEY)
+TRANSCRIPTION_MODEL = os.getenv(
+    "TRANSCRIPTION_MODEL", "google/gemini-2.5-flash-preview-05-20"
+)
 
 # Minimax TTS Configuration
-MINIMAX_API_KEY = os.getenv('MINIMAX_API_KEY')
-MINIMAX_TTS_MODEL = os.getenv('MINIMAX_TTS_MODEL', 'speech-2.8-turbo')
-MINIMAX_TTS_VOICE = os.getenv('MINIMAX_TTS_VOICE', 'Malay_male_1_v1')
-MINIMAX_TTS_LANGUAGE = os.getenv('MINIMAX_TTS_LANGUAGE', 'Malay')
+MINIMAX_API_KEY = os.getenv("MINIMAX_API_KEY")
+MINIMAX_TTS_MODEL = os.getenv("MINIMAX_TTS_MODEL", "speech-2.8-turbo")
+MINIMAX_TTS_VOICE = os.getenv("MINIMAX_TTS_VOICE", "Malay_male_1_v1")
+MINIMAX_TTS_LANGUAGE = os.getenv("MINIMAX_TTS_LANGUAGE", "Malay")
 
 # RAG Configuration
-ENABLE_RAG = os.getenv('ENABLE_RAG', 'true').lower() == 'true'
-RAG_TOP_K = int(os.getenv('RAG_TOP_K', '5'))
-RAG_USE_ADVANCED = os.getenv('RAG_USE_ADVANCED', 'false').lower() == 'true'
+ENABLE_RAG = os.getenv("ENABLE_RAG", "true").lower() == "true"
+RAG_TOP_K = int(os.getenv("RAG_TOP_K", "5"))
+RAG_USE_ADVANCED = os.getenv("RAG_USE_ADVANCED", "false").lower() == "true"
 
 # VTube Studio Configuration
-VTS_ENABLED = os.getenv('VTS_ENABLED', 'false').lower() == 'true'
-VTS_HOST = os.getenv('VTS_HOST', 'localhost')
-VTS_PORT = int(os.getenv('VTS_PORT', '8001'))
-VTS_AUTO_RECONNECT = os.getenv('VTS_AUTO_RECONNECT', 'true').lower() == 'true'
-VTS_RECONNECT_INTERVAL = float(os.getenv('VTS_RECONNECT_INTERVAL', '5.0'))
+VTS_ENABLED = os.getenv("VTS_ENABLED", "false").lower() == "true"
+VTS_HOST = os.getenv("VTS_HOST", "localhost")
+VTS_PORT = int(os.getenv("VTS_PORT", "8001"))
+VTS_AUTO_RECONNECT = os.getenv("VTS_AUTO_RECONNECT", "true").lower() == "true"
+VTS_RECONNECT_INTERVAL = float(os.getenv("VTS_RECONNECT_INTERVAL", "5.0"))
 
 # Initialize RAG System
 rag_manager = None
@@ -78,27 +92,28 @@ image_handler = None
 
 if ENABLE_RAG:
     try:
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Initializing RAG System...")
-        print("="*60)
-        
+        print("=" * 60)
+
         # Use lightweight mode by default (no heavy embeddings)
         rag_manager = RAGManager(use_advanced=RAG_USE_ADVANCED)
         rag_manager.initialize()
-        
+
         # Initialize image handler (lightweight)
         try:
             image_handler = ImageHandler()
             image_handler.load_images()
         except Exception as e:
             print(f"Note: Image handler not initialized: {e}")
-        
+
         print("\n✓ RAG System ready!")
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")
     except Exception as e:
         print(f"\n⚠ Warning: Could not initialize RAG system: {e}")
         print("Continuing without RAG functionality...\n")
         import traceback
+
         traceback.print_exc()
         rag_manager = None
 
@@ -111,6 +126,7 @@ vts_loop = None  # Persistent event loop for VTS
 vts_idle_animator = None  # Idle animation controller
 vts_gesture_controller = None  # Gesture controller for talking
 vts_gesture_animator = None  # Gesture animator for hotkey-based animations
+
 
 def run_in_vts_loop(coro):
     """
@@ -127,6 +143,7 @@ def run_in_vts_loop(coro):
     print(f"[VTS] Coroutine completed")
     return result
 
+
 def vts_loop_thread():
     """Run the VTS event loop in a background thread."""
     global vts_loop
@@ -134,46 +151,49 @@ def vts_loop_thread():
     asyncio.set_event_loop(vts_loop)
     vts_loop.run_forever()
 
+
 if VTS_ENABLED:
     try:
-        print("\n" + "="*60)
+        print("\n" + "=" * 60)
         print("Initializing VTube Studio Integration...")
-        print("="*60)
-        
+        print("=" * 60)
+
         # Start the VTS event loop in a background thread
         vts_thread = threading.Thread(target=vts_loop_thread, daemon=True)
         vts_thread.start()
         print("[VTS] Started background event loop thread")
-        
+
         # Wait for loop to be ready
         import time
+
         while vts_loop is None:
             time.sleep(0.1)
-        
+
         # Initialize VTS components
         vts_connector = VTSConnector(
             host=VTS_HOST,
             port=VTS_PORT,
             auto_reconnect=VTS_AUTO_RECONNECT,
-            reconnect_interval=VTS_RECONNECT_INTERVAL
+            reconnect_interval=VTS_RECONNECT_INTERVAL,
         )
         vts_lip_sync = LipSyncAnalyzer()
         vts_expression_mapper = ExpressionMapper()
         vts_audio_converter = AudioConverter()
-        
+
         # Initialize liveliness controllers
         vts_idle_animator = get_idle_animator(vts_connector)
         vts_gesture_controller = get_gesture_controller(vts_connector)
         vts_gesture_animator = get_gesture_animator(vts_connector)
-        
+
         print("\n✓ VTS Integration ready! (Will connect on first use)")
         print("✓ Idle animations and gesture control ready!")
         print("✓ Gesture animator for hotkey animations ready!")
-        print("="*60 + "\n")
+        print("=" * 60 + "\n")
     except Exception as e:
         print(f"\n⚠ Warning: Could not initialize VTS system: {e}")
         print("Continuing without VTS functionality...\n")
         import traceback
+
         traceback.print_exc()
         vts_connector = None
 
@@ -237,14 +257,31 @@ CREATOR_INFO = {
     "description": "AI ini dicipta oleh **Zaaba Bin Ahmad**. Beliau adalah seorang pensyarah dan penyelidik di UiTM yang mengkhusus dalam pembangunan sistem pintar dan aplikasi berasaskan AI.",
     "triggers": [
         # Malay triggers
-        "siapa pencipta", "siapa pembangun", "siapa yang buat", "siapa yang cipta", "siapa yang cipta awak",
-        "siapa yang bina", "siapa owner", "siapa tuan", "pencipta ai", "cipta awak",
-        "pembangun ai", "siapa zaaba", "ts zaaba", "zaaba ahmad",
+        "siapa pencipta",
+        "siapa pembangun",
+        "siapa yang buat",
+        "siapa yang cipta",
+        "siapa yang cipta awak",
+        "siapa yang bina",
+        "siapa owner",
+        "siapa tuan",
+        "pencipta ai",
+        "cipta awak",
+        "pembangun ai",
+        "siapa zaaba",
+        "ts zaaba",
+        "zaaba ahmad",
         # English triggers
-        "who created you", "who is your creator", "who built you",
-        "who made you", "who developed you", "your creator",
-        "who is zaaba", "zaaba bin ahmad", "zaaba ahmad"
-    ]
+        "who created you",
+        "who is your creator",
+        "who built you",
+        "who made you",
+        "who developed you",
+        "your creator",
+        "who is zaaba",
+        "zaaba bin ahmad",
+        "zaaba ahmad",
+    ],
 }
 
 
@@ -259,9 +296,9 @@ def detect_creator_question(query):
 def get_last_user_query(messages):
     """Extract the last user message from the conversation"""
     for msg in reversed(messages):
-        if msg.get('role') == 'user':
-            content = msg.get('content', '')
-            
+        if msg.get("role") == "user":
+            content = msg.get("content", "")
+
             # Handle multimodal messages (e.g., voice messages)
             # Content can be a list of objects with 'text' and 'input_audio'
             if isinstance(content, list):
@@ -269,32 +306,34 @@ def get_last_user_query(messages):
                 text_parts = []
                 for item in content:
                     if isinstance(item, dict):
-                        if item.get('type') == 'text':
-                            text_parts.append(item.get('text', ''))
-                        elif item.get('type') == 'input_text':
-                            text_parts.append(item.get('text', ''))
+                        if item.get("type") == "text":
+                            text_parts.append(item.get("text", ""))
+                        elif item.get("type") == "input_text":
+                            text_parts.append(item.get("text", ""))
                 # Join all text parts for RAG search
-                return ' '.join(text_parts)
-            
+                return " ".join(text_parts)
+
             # Regular text message
             return content
-    return ''
+    return ""
 
 
-def build_system_prompt(retrieved_context=''):
+def build_system_prompt(retrieved_context=""):
     """Build the complete system prompt with optional RAG context"""
     if retrieved_context and ENABLE_RAG:
-        return BASE_SYSTEM_PROMPT + RAG_INSTRUCTIONS.format(retrieved_context=retrieved_context)
+        return BASE_SYSTEM_PROMPT + RAG_INSTRUCTIONS.format(
+            retrieved_context=retrieved_context
+        )
     return BASE_SYSTEM_PROMPT
 
 
-@app.route('/')
+@app.route("/")
 def index():
     """Render the main chat interface"""
-    return render_template('index.html')
+    return render_template("index.html")
 
 
-@app.route('/chat', methods=['POST'])
+@app.route("/chat", methods=["POST"])
 def chat():
     """
     Handle chat requests with OpenRouter API
@@ -302,110 +341,105 @@ def chat():
     Integrates with RAG system for context retrieval
     """
     data = request.get_json()
-    messages = data.get('messages', [])
-    model = data.get('model', DEFAULT_MODEL)
-    stream_requested = data.get('stream', True)
-    
+    messages = data.get("messages", [])
+    model = data.get("model", DEFAULT_MODEL)
+    stream_requested = data.get("stream", True)
+
     if not OPENROUTER_API_KEY:
-        return jsonify({'error': 'OpenRouter API key not configured'}), 500
-    
+        return jsonify({"error": "OpenRouter API key not configured"}), 500
+
     # Get the user's last query
     user_query = get_last_user_query(messages)
-    
+
     # Note: Gesture triggering for user input is now handled by frontend
     # when TTS starts playing, not here. This prevents redundant triggers.
-    
+
     # Check if user is asking about the creator
     if detect_creator_question(user_query):
         # Return structured response with creator info and image
         creator_response = {
-            'type': 'creator_info',
-            'content': CREATOR_INFO["description"],
-            'image': {
-                'url': CREATOR_INFO["image_path"],
-                'alt': f"{CREATOR_INFO['name']} - {CREATOR_INFO['title']}",
-                'title': CREATOR_INFO['name']
+            "type": "creator_info",
+            "content": CREATOR_INFO["description"],
+            "image": {
+                "url": CREATOR_INFO["image_path"],
+                "alt": f"{CREATOR_INFO['name']} - {CREATOR_INFO['title']}",
+                "title": CREATOR_INFO["name"],
             },
-            'links': [
+            "links": [
                 {
-                    'text': 'Profil Google Scholar',
-                    'url': CREATOR_INFO["google_scholar"],
-                    'icon': 'external-link'
+                    "text": "Profil Google Scholar",
+                    "url": CREATOR_INFO["google_scholar"],
+                    "icon": "external-link",
                 }
             ],
-            'role': 'assistant'
+            "role": "assistant",
         }
-        
+
         if stream_requested:
             # Return streaming format for creator info
             def generate_creator_response():
                 # Send the response as a single chunk
-                yield f'data: {json.dumps({"choices": [{"delta": {"content": json.dumps(creator_response)}}]})}\n\n'
-                yield 'data: [DONE]\n\n'
-            
+                yield f"data: {json.dumps({'choices': [{'delta': {'content': json.dumps(creator_response)}}]})}\n\n"
+                yield "data: [DONE]\n\n"
+
             return Response(
                 stream_with_context(generate_creator_response()),
-                mimetype='text/plain',
-                headers={
-                    'Cache-Control': 'no-cache',
-                    'X-Accel-Buffering': 'no'
-                }
+                mimetype="text/plain",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
         else:
             return jsonify(creator_response)
-    
+
     # Retrieve context using RAG if enabled
-    retrieved_context = ''
+    retrieved_context = ""
     sources = []
     rag_used = False
-    
+
     # Skip RAG for voice/multimodal messages
     # We can't search the knowledge base until we know the transcribed content
     last_message = messages[-1] if messages else None
     is_voice_message = False
-    if last_message and last_message.get('role') == 'user':
-        content = last_message.get('content', '')
+    if last_message and last_message.get("role") == "user":
+        content = last_message.get("content", "")
         if isinstance(content, list):
             # Check if this is a voice message (contains input_audio)
             is_voice_message = any(
-                isinstance(item, dict) and item.get('type') == 'input_audio'
+                isinstance(item, dict) and item.get("type") == "input_audio"
                 for item in content
             )
-    
+
     if ENABLE_RAG and rag_manager and user_query and not is_voice_message:
         try:
             rag_result = rag_manager.query(
-                query_text=user_query,
-                top_k=RAG_TOP_K,
-                format_context=True
+                query_text=user_query, top_k=RAG_TOP_K, format_context=True
             )
-            retrieved_context = rag_result.get('context', '')
-            sources = rag_result.get('sources', [])
+            retrieved_context = rag_result.get("context", "")
+            sources = rag_result.get("sources", [])
             rag_used = len(sources) > 0  # RAG was used if we found sources
         except Exception as e:
             print(f"RAG query error: {e}")
-    
+
     # Build system prompt with retrieved context
     system_prompt = build_system_prompt(retrieved_context)
-    
+
     # Prepare messages with system prompt
     full_messages = [{"role": "system", "content": system_prompt}] + messages
-    
+
     # Prepare API request
     headers = {
         "Authorization": f"Bearer {OPENROUTER_API_KEY}",
         "Content-Type": "application/json",
         "HTTP-Referer": "https://uitm.edu.my",
-        "X-Title": "UiTM Receptionist AI"
+        "X-Title": "UiTM Receptionist AI",
     }
-    
+
     payload = {
         "model": model,
         "messages": full_messages,
         "reasoning": {"enabled": True},
-        "stream": stream_requested
+        "stream": stream_requested,
     }
-    
+
     try:
         if stream_requested:
             # Streaming response for real-time reasoning
@@ -414,110 +448,100 @@ def chat():
                     f"{OPENROUTER_BASE_URL}/chat/completions",
                     headers=headers,
                     json=payload,
-                    stream=True
+                    stream=True,
                 )
-                
+
                 for line in response.iter_lines():
                     if line:
-                        decoded_line = line.decode('utf-8')
-                        if decoded_line.startswith('data: '):
+                        decoded_line = line.decode("utf-8")
+                        if decoded_line.startswith("data: "):
                             data_str = decoded_line[6:]
-                            if data_str == '[DONE]':
+                            if data_str == "[DONE]":
                                 # Send RAG metadata if available
                                 rag_metadata = {}
                                 if rag_used:
-                                    rag_metadata['rag_used'] = True
+                                    rag_metadata["rag_used"] = True
                                 if sources:
-                                    rag_metadata['sources'] = sources
+                                    rag_metadata["sources"] = sources
                                 if rag_metadata:
-                                    yield f'data: {json.dumps({"rag_metadata": rag_metadata})}\n\n'
-                                yield 'data: [DONE]\n\n'
+                                    yield f"data: {json.dumps({'rag_metadata': rag_metadata})}\n\n"
+                                yield "data: [DONE]\n\n"
                                 break
                             try:
                                 data_json = json.loads(data_str)
-                                yield f'data: {json.dumps(data_json)}\n\n'
+                                yield f"data: {json.dumps(data_json)}\n\n"
                             except json.JSONDecodeError:
                                 continue
-            
+
             return Response(
                 stream_with_context(generate()),
-                mimetype='text/plain',
-                headers={
-                    'Cache-Control': 'no-cache',
-                    'X-Accel-Buffering': 'no'
-                }
+                mimetype="text/plain",
+                headers={"Cache-Control": "no-cache", "X-Accel-Buffering": "no"},
             )
         else:
             # Non-streaming response
             response = requests.post(
-                f"{OPENROUTER_BASE_URL}/chat/completions",
-                headers=headers,
-                json=payload
+                f"{OPENROUTER_BASE_URL}/chat/completions", headers=headers, json=payload
             )
-            
+
             response_data = response.json()
-            
-            if 'choices' in response_data and len(response_data['choices']) > 0:
-                message = response_data['choices'][0]['message']
+
+            if "choices" in response_data and len(response_data["choices"]) > 0:
+                message = response_data["choices"][0]["message"]
                 result = {
-                    'content': message.get('content', ''),
-                    'reasoning': message.get('reasoning', ''),
-                    'role': 'assistant'
+                    "content": message.get("content", ""),
+                    "reasoning": message.get("reasoning", ""),
+                    "role": "assistant",
                 }
-                
+
                 # Include RAG metadata if available
                 if rag_used:
-                    result['rag_used'] = True
+                    result["rag_used"] = True
                 if sources:
-                    result['sources'] = sources
-                
+                    result["sources"] = sources
+
                 return jsonify(result)
             else:
-                return jsonify({'error': 'Invalid response from OpenRouter'}), 500
-                
+                return jsonify({"error": "Invalid response from OpenRouter"}), 500
+
     except requests.exceptions.RequestException as e:
-        return jsonify({'error': f'API request failed: {str(e)}'}), 500
+        return jsonify({"error": f"API request failed: {str(e)}"}), 500
     except Exception as e:
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@app.route('/models', methods=['GET'])
+@app.route("/models", methods=["GET"])
 def get_models():
     """Get available models from OpenRouter"""
     if not OPENROUTER_API_KEY:
-        return jsonify({'error': 'OpenRouter API key not configured'}), 500
+        return jsonify({"error": "OpenRouter API key not configured"}), 500
 
-    headers = {
-        "Authorization": f"Bearer {OPENROUTER_API_KEY}"
-    }
+    headers = {"Authorization": f"Bearer {OPENROUTER_API_KEY}"}
 
     try:
-        response = requests.get(
-            f"{OPENROUTER_BASE_URL}/models",
-            headers=headers
-        )
+        response = requests.get(f"{OPENROUTER_BASE_URL}/models", headers=headers)
         return jsonify(response.json())
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/transcribe', methods=['POST'])
+@app.route("/transcribe", methods=["POST"])
 def transcribe_audio():
     """
     Transcribe audio using a dedicated transcription model.
     Uses separate API key to not share with main chat model.
     """
     if not TRANSCRIPTION_API_KEY:
-        return jsonify({'error': 'Transcription API key not configured'}), 500
+        return jsonify({"error": "Transcription API key not configured"}), 500
 
     try:
         data = request.get_json()
 
-        if not data or 'audio' not in data:
-            return jsonify({'error': 'No audio data provided'}), 400
+        if not data or "audio" not in data:
+            return jsonify({"error": "No audio data provided"}), 400
 
-        audio_data = data['audio']  # Base64 encoded audio
-        audio_format = data.get('format', 'webm')
+        audio_data = data["audio"]  # Base64 encoded audio
+        audio_format = data.get("format", "webm")
 
         # Build transcription request
         # Gemini accepts audio natively
@@ -529,180 +553,184 @@ def transcribe_audio():
                     "content": [
                         {
                             "type": "text",
-                            "text": "Transkripsikan audio ini kepada teks dalam Bahasa Melayu. Hanya berikan teks transkripsi, tiada komen atau penjelasan tambahan."
+                            "text": "Transkripsikan audio ini kepada teks dalam Bahasa Melayu. Hanya berikan teks transkripsi, tiada komen atau penjelasan tambahan.",
                         },
                         {
                             "type": "input_audio",
-                            "input_audio": {
-                                "data": audio_data,
-                                "format": audio_format
-                            }
-                        }
-                    ]
+                            "input_audio": {"data": audio_data, "format": audio_format},
+                        },
+                    ],
                 }
             ],
-            "max_tokens": 1000
+            "max_tokens": 1000,
         }
 
         headers = {
             "Authorization": f"Bearer {TRANSCRIPTION_API_KEY}",
             "Content-Type": "application/json",
             "HTTP-Referer": "https://uitm.edu.my",
-            "X-Title": "UiTM Receptionist AI - Transcription"
+            "X-Title": "UiTM Receptionist AI - Transcription",
         }
 
         response = requests.post(
             f"{OPENROUTER_BASE_URL}/chat/completions",
             headers=headers,
             json=transcription_request,
-            timeout=30
+            timeout=30,
         )
 
         if response.status_code != 200:
-            print(f"[Transcription] API error: {response.status_code} - {response.text}")
-            return jsonify({'error': f'Transcription API error: {response.status_code}'}), 500
+            print(
+                f"[Transcription] API error: {response.status_code} - {response.text}"
+            )
+            return jsonify(
+                {"error": f"Transcription API error: {response.status_code}"}
+            ), 500
 
         result = response.json()
-        transcribed_text = result.get('choices', [{}])[0].get('message', {}).get('content', '')
+        transcribed_text = (
+            result.get("choices", [{}])[0].get("message", {}).get("content", "")
+        )
 
         if not transcribed_text:
-            return jsonify({'error': 'No transcription returned'}), 500
+            return jsonify({"error": "No transcription returned"}), 500
 
         print(f"[Transcription] Transcribed: {transcribed_text[:100]}...")
 
-        return jsonify({
-            'success': True,
-            'text': transcribed_text.strip()
-        })
+        return jsonify({"success": True, "text": transcribed_text.strip()})
 
     except Exception as e:
         print(f"[Transcription] Error: {e}")
-        return jsonify({'error': f'Transcription error: {str(e)}'}), 500
+        return jsonify({"error": f"Transcription error: {str(e)}"}), 500
 
 
 # RAG API Endpoints
 
-@app.route('/api/knowledge/search', methods=['GET'])
+
+@app.route("/api/knowledge/search", methods=["GET"])
 def knowledge_search():
     """Search the knowledge base"""
     if not rag_manager:
-        return jsonify({'error': 'RAG system not initialized'}), 503
-    
-    query = request.args.get('q', '')
-    top_k = request.args.get('top_k', RAG_TOP_K, type=int)
-    category = request.args.get('category', None)
-    
+        return jsonify({"error": "RAG system not initialized"}), 503
+
+    query = request.args.get("q", "")
+    top_k = request.args.get("top_k", RAG_TOP_K, type=int)
+    category = request.args.get("category", None)
+
     if not query:
-        return jsonify({'error': 'Query parameter "q" is required'}), 400
-    
+        return jsonify({"error": 'Query parameter "q" is required'}), 400
+
     try:
         result = rag_manager.query(
             query_text=query,
             top_k=top_k,
             category_filter=category,
-            format_context=False
+            format_context=False,
         )
-        
+
         # Format chunks for response
         chunks_data = []
-        for chunk in result.get('chunks', []):
-            chunks_data.append({
-                'id': chunk.id,
-                'content': chunk.content[:500] + '...' if len(chunk.content) > 500 else chunk.content,
-                'doc_title': chunk.doc_title,
-                'category': chunk.category,
-                'relevance': round(chunk.combined_score, 3)
-            })
-        
-        return jsonify({
-            'query': query,
-            'results': chunks_data,
-            'total': len(chunks_data)
-        })
+        for chunk in result.get("chunks", []):
+            chunks_data.append(
+                {
+                    "id": chunk.id,
+                    "content": chunk.content[:500] + "..."
+                    if len(chunk.content) > 500
+                    else chunk.content,
+                    "doc_title": chunk.doc_title,
+                    "category": chunk.category,
+                    "relevance": round(chunk.combined_score, 3),
+                }
+            )
+
+        return jsonify(
+            {"query": query, "results": chunks_data, "total": len(chunks_data)}
+        )
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/knowledge/categories', methods=['GET'])
+@app.route("/api/knowledge/categories", methods=["GET"])
 def knowledge_categories():
     """Get list of available categories"""
     if not rag_manager:
-        return jsonify({'error': 'RAG system not initialized'}), 503
-    
+        return jsonify({"error": "RAG system not initialized"}), 503
+
     try:
         categories = rag_manager.get_categories()
-        return jsonify({'categories': categories})
+        return jsonify({"categories": categories})
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/knowledge/stats', methods=['GET'])
+@app.route("/api/knowledge/stats", methods=["GET"])
 def knowledge_stats():
     """Get statistics about the knowledge base"""
     if not rag_manager:
-        return jsonify({'error': 'RAG system not initialized'}), 503
-    
+        return jsonify({"error": "RAG system not initialized"}), 503
+
     try:
         stats = rag_manager.get_stats()
         return jsonify(stats)
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/knowledge/reload', methods=['POST'])
+@app.route("/api/knowledge/reload", methods=["POST"])
 def knowledge_reload():
     """Reload and reindex the knowledge base"""
     if not rag_manager:
-        return jsonify({'error': 'RAG system not initialized'}), 503
-    
+        return jsonify({"error": "RAG system not initialized"}), 503
+
     try:
         rag_manager.reload()
-        return jsonify({
-            'status': 'success',
-            'message': 'Knowledge base reloaded successfully'
-        })
+        return jsonify(
+            {"status": "success", "message": "Knowledge base reloaded successfully"}
+        )
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/api/images/search', methods=['GET'])
+@app.route("/api/images/search", methods=["GET"])
 def images_search():
     """Search for images in the knowledge base"""
     if not image_handler:
-        return jsonify({'error': 'Image handler not initialized'}), 503
-    
-    query = request.args.get('q', '')
-    limit = request.args.get('limit', 5, type=int)
-    
+        return jsonify({"error": "Image handler not initialized"}), 503
+
+    query = request.args.get("q", "")
+    limit = request.args.get("limit", 5, type=int)
+
     if not query:
-        return jsonify({'error': 'Query parameter "q" is required'}), 400
-    
+        return jsonify({"error": 'Query parameter "q" is required'}), 400
+
     try:
         images = image_handler.search_images(query, limit)
-        return jsonify({
-            'query': query,
-            'images': [
-                {
-                    'id': img.id,
-                    'filename': img.filename,
-                    'description': img.description,
-                    'category': img.category,
-                    'url': img.url_path
-                }
-                for img in images
-            ]
-        })
+        return jsonify(
+            {
+                "query": query,
+                "images": [
+                    {
+                        "id": img.id,
+                        "filename": img.filename,
+                        "description": img.description,
+                        "category": img.category,
+                        "url": img.url_path,
+                    }
+                    for img in images
+                ],
+            }
+        )
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/static/kb_assets/<path:filename>')
+@app.route("/static/kb_assets/<path:filename>")
 def serve_kb_assets(filename):
     """Serve knowledge base assets (images)"""
-    return send_from_directory('knowledge_base/assets', filename)
+    return send_from_directory("knowledge_base/assets", filename)
 
 
-@app.route('/tts', methods=['POST'])
+@app.route("/tts", methods=["POST"])
 def text_to_speech():
     """
     Convert text to speech using Minimax TTS API
@@ -710,198 +738,226 @@ def text_to_speech():
     Optionally includes lip sync data if VTS is enabled
     """
     if not MINIMAX_API_KEY:
-        return jsonify({'error': 'Minimax API key not configured'}), 500
-    
+        return jsonify({"error": "Minimax API key not configured"}), 500
+
     data = request.get_json()
-    text = data.get('text', '')
-    include_lip_sync = data.get('include_lip_sync', False) and VTS_ENABLED
-    
+    text = data.get("text", "")
+    include_lip_sync = data.get("include_lip_sync", False) and VTS_ENABLED
+
     if not text:
-        return jsonify({'error': 'Text is required'}), 400
-    
+        return jsonify({"error": "Text is required"}), 400
+
     # Limit text length to prevent API errors (Minimax limit: 10,000 characters)
     if len(text) > 10000:
-        text = text[:9997] + '...'
-    
+        text = text[:9997] + "..."
+
     try:
         from minimax_tts import MinimaxTTS, MinimaxTTSError
-        
+
         tts = MinimaxTTS(
             api_key=MINIMAX_API_KEY,
             model=MINIMAX_TTS_MODEL,
             voice_id=MINIMAX_TTS_VOICE,
-            language_boost=MINIMAX_TTS_LANGUAGE
+            language_boost=MINIMAX_TTS_LANGUAGE,
         )
-        
+
         audio_bytes = tts.generate_audio(text)
-        
+
         # If lip sync is not requested or VTS is disabled, return audio only
         if not include_lip_sync:
             return Response(
                 audio_bytes,
-                mimetype='audio/mpeg',
+                mimetype="audio/mpeg",
                 headers={
-                    'Content-Disposition': 'inline; filename="speech.mp3"',
-                    'Cache-Control': 'no-cache'
-                }
+                    "Content-Disposition": 'inline; filename="speech.mp3"',
+                    "Cache-Control": "no-cache",
+                },
             )
-        
+
         # Generate lip sync data
         lip_sync_data = []
         duration = 0.0
         expression = None
-        
+
         try:
             # Convert MP3 to WAV for analysis
             if vts_audio_converter and vts_audio_converter.is_available:
                 print(f"[TTS] Converting MP3 to WAV for lip sync analysis...")
                 wav_bytes = vts_audio_converter.convert_mp3_to_wav(audio_bytes)
-                
+
                 if wav_bytes:
                     # Analyze WAV for lip sync
-                    print(f"[TTS] Analyzing WAV for lip sync ({len(wav_bytes)} bytes)...")
+                    print(
+                        f"[TTS] Analyzing WAV for lip sync ({len(wav_bytes)} bytes)..."
+                    )
                     lip_sync_data = vts_lip_sync.analyze_wav_bytes(wav_bytes)
                     print(f"[TTS] Generated {len(lip_sync_data)} lip sync frames")
-                    
+
                     # Get audio duration
-                    duration = vts_audio_converter.get_audio_duration(audio_bytes, 'mp3') or 0.0
-                    
+                    duration = (
+                        vts_audio_converter.get_audio_duration(audio_bytes, "mp3")
+                        or 0.0
+                    )
+
                     # Extract emotion from text
                     if vts_expression_mapper:
                         expression = vts_expression_mapper.extract_emotion(text)
                 else:
                     print(f"[TTS] WAV conversion returned empty")
             else:
-                print(f"[TTS] Audio converter not available (is_available={vts_audio_converter.is_available if vts_audio_converter else 'None'})")
+                print(
+                    f"[TTS] Audio converter not available (is_available={vts_audio_converter.is_available if vts_audio_converter else 'None'})"
+                )
         except Exception as e:
             print(f"[TTS] Lip sync generation error: {e}")
             import traceback
+
             traceback.print_exc()
-        
+
         # Return JSON with audio and lip sync data
-        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
-        
-        return jsonify({
-            'audio': audio_base64,
-            'audio_format': 'mp3',
-            'lip_sync': lip_sync_data,
-            'duration': duration,
-            'expression': expression,
-            'vts_enabled': VTS_ENABLED
-        })
-        
+        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+
+        return jsonify(
+            {
+                "audio": audio_base64,
+                "audio_format": "mp3",
+                "lip_sync": lip_sync_data,
+                "duration": duration,
+                "expression": expression,
+                "vts_enabled": VTS_ENABLED,
+            }
+        )
+
     except MinimaxTTSError as e:
         print(f"Minimax TTS error: {e.message}")
-        return jsonify({'error': f'TTS error: {e.message}'}), 500
+        return jsonify({"error": f"TTS error: {e.message}"}), 500
     except Exception as e:
         print(f"TTS unexpected error: {str(e)}")
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        return jsonify({"error": f"Server error: {str(e)}"}), 500
 
 
-@app.route('/tts-optimized', methods=['POST'])
+@app.route("/tts-optimized", methods=["POST"])
 def text_to_speech_optimized():
     """
     Optimized TTS endpoint with streaming, caching, and parallel processing.
     Returns audio with lip sync data using optimized pipeline.
     """
     if not MINIMAX_API_KEY:
-        return jsonify({'error': 'Minimax API key not configured'}), 500
-    
+        return jsonify({"error": "Minimax API key not configured"}), 500
+
     if not TTS_OPTIMIZED_AVAILABLE:
-        return jsonify({'error': 'Optimized TTS not available'}), 500
-    
+        return jsonify({"error": "Optimized TTS not available"}), 500
+
     data = request.get_json()
-    text = data.get('text', '')
-    include_lip_sync = data.get('include_lip_sync', False) and VTS_ENABLED
-    use_streaming = data.get('streaming', True)
-    
+    text = data.get("text", "")
+    include_lip_sync = data.get("include_lip_sync", False) and VTS_ENABLED
+    use_streaming = data.get("streaming", True)
+
     if not text:
-        return jsonify({'error': 'Text is required'}), 400
-    
+        return jsonify({"error": "Text is required"}), 400
+
     # Limit text length
     if len(text) > 10000:
-        text = text[:9997] + '...'
-    
+        text = text[:9997] + "..."
+
     try:
         import time
+
         start_time = time.time()
-        
+
         # Get optimized TTS instance
         tts = get_tts_instance(
             api_key=MINIMAX_API_KEY,
             model=MINIMAX_TTS_MODEL,
             voice_id=MINIMAX_TTS_VOICE,
-            language_boost=MINIMAX_TTS_LANGUAGE
+            language_boost=MINIMAX_TTS_LANGUAGE,
         )
-        
+
         all_audio = b""
         all_lip_sync = []
         chunk_index = 0
-        
+
         # Process TTS with streaming
         async def process_tts():
             nonlocal all_audio, all_lip_sync, chunk_index
-            
+
             async for chunk in tts.generate_audio_streaming(text):
                 all_audio += chunk.audio_bytes
-                
+
                 # Process lip sync for this chunk in parallel
-                if include_lip_sync and vts_audio_converter and vts_audio_converter.is_available:
+                if (
+                    include_lip_sync
+                    and vts_audio_converter
+                    and vts_audio_converter.is_available
+                ):
                     try:
                         # Convert chunk to WAV
-                        wav_bytes = vts_audio_converter.convert_mp3_to_wav(chunk.audio_bytes)
+                        wav_bytes = vts_audio_converter.convert_mp3_to_wav(
+                            chunk.audio_bytes
+                        )
                         if wav_bytes:
                             # Use parallel analyzer
                             parallel_analyzer = get_parallel_analyzer()
-                            lip_sync = await parallel_analyzer.analyze_wav_bytes_parallel(wav_bytes)
-                            
+                            lip_sync = (
+                                await parallel_analyzer.analyze_wav_bytes_parallel(
+                                    wav_bytes
+                                )
+                            )
+
                             # Adjust timestamps for chunk position
-                            offset = chunk_index * (len(lip_sync) / 30.0) if lip_sync else 0
+                            offset = (
+                                chunk_index * (len(lip_sync) / 30.0) if lip_sync else 0
+                            )
                             adjusted_lip_sync = [(t + offset, v) for t, v in lip_sync]
                             all_lip_sync.extend(adjusted_lip_sync)
                     except Exception as e:
                         print(f"[TTS-Optimized] Lip sync error for chunk: {e}")
-                
+
                 chunk_index += 1
-        
+
         # Run async processing
         asyncio.run(process_tts())
-        
+
         # Get audio duration
         duration = 0.0
         if vts_audio_converter:
-            duration = vts_audio_converter.get_audio_duration(all_audio, 'mp3') or 0.0
-        
+            duration = vts_audio_converter.get_audio_duration(all_audio, "mp3") or 0.0
+
         # Get expression
         expression = None
         if vts_expression_mapper:
             expression = vts_expression_mapper.extract_emotion(text)
-        
+
         elapsed = time.time() - start_time
-        print(f"[TTS-Optimized] Generated in {elapsed:.2f}s, {len(all_audio)} bytes, {len(all_lip_sync)} lip sync frames")
-        
+        print(
+            f"[TTS-Optimized] Generated in {elapsed:.2f}s, {len(all_audio)} bytes, {len(all_lip_sync)} lip sync frames"
+        )
+
         # Return response
-        audio_base64 = base64.b64encode(all_audio).decode('utf-8')
-        
-        return jsonify({
-            'audio': audio_base64,
-            'audio_format': 'mp3',
-            'lip_sync': all_lip_sync,
-            'duration': duration,
-            'expression': expression,
-            'vts_enabled': VTS_ENABLED,
-            'processing_time': elapsed,
-            'optimized': True
-        })
-        
+        audio_base64 = base64.b64encode(all_audio).decode("utf-8")
+
+        return jsonify(
+            {
+                "audio": audio_base64,
+                "audio_format": "mp3",
+                "lip_sync": all_lip_sync,
+                "duration": duration,
+                "expression": expression,
+                "vts_enabled": VTS_ENABLED,
+                "processing_time": elapsed,
+                "optimized": True,
+            }
+        )
+
     except Exception as e:
         print(f"[TTS-Optimized] Error: {e}")
         import traceback
+
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/tts/play-startup-audio', methods=['POST'])
+@app.route("/tts/play-startup-audio", methods=["POST"])
 def play_startup_audio():
     """
     Play startup greeting audio with lip-sync data.
@@ -910,46 +966,53 @@ def play_startup_audio():
     global vts_idle_animator, vts_gesture_controller
 
     if not MINIMAX_API_KEY:
-        return jsonify({'error': 'Minimax API key not configured'}), 500
+        return jsonify({"error": "Minimax API key not configured"}), 500
 
     if not TTS_OPTIMIZED_AVAILABLE:
-        return jsonify({'error': 'Optimized TTS not available'}), 500
+        return jsonify({"error": "Optimized TTS not available"}), 500
 
     data = request.get_json()
-    include_lip_sync = data.get('include_lip_sync', False) and VTS_ENABLED
+    include_lip_sync = data.get("include_lip_sync", False) and VTS_ENABLED
 
     # Path to startup audio file
     startup_audio_path = os.path.join(
         os.path.dirname(os.path.abspath(__file__)),
-        'static',
-        'assets',
-        'voice_message',
-        'startup_greetings.wav'
+        "static",
+        "assets",
+        "voice_message",
+        "startup_greetings.wav",
     )
 
     # Check if file exists
     if not os.path.exists(startup_audio_path):
         print(f"[Startup Audio] File not found: {startup_audio_path}")
-        return jsonify({'error': 'Startup audio file not found'}), 404
+        return jsonify({"error": "Startup audio file not found"}), 404
 
     try:
         import time
+
         start_time = time.time()
 
         # Read the WAV file
-        with open(startup_audio_path, 'rb') as f:
+        with open(startup_audio_path, "rb") as f:
             audio_bytes = f.read()
 
         # Generate lip-sync data if requested and VTS is available
         all_lip_sync = []
-        if include_lip_sync and vts_audio_converter and vts_audio_converter.is_available:
+        if (
+            include_lip_sync
+            and vts_audio_converter
+            and vts_audio_converter.is_available
+        ):
             try:
                 # Use parallel analyzer for lip-sync generation
                 parallel_analyzer = get_parallel_analyzer()
 
                 # Run async analysis synchronously
                 async def analyze_audio():
-                    return await parallel_analyzer.analyze_wav_bytes_parallel(audio_bytes)
+                    return await parallel_analyzer.analyze_wav_bytes_parallel(
+                        audio_bytes
+                    )
 
                 lip_sync = asyncio.run(analyze_audio())
                 all_lip_sync = lip_sync if lip_sync else []
@@ -960,69 +1023,78 @@ def play_startup_audio():
         # Get audio duration
         duration = 0.0
         if vts_audio_converter:
-            duration = vts_audio_converter.get_audio_duration(audio_bytes, 'wav') or 0.0
+            duration = vts_audio_converter.get_audio_duration(audio_bytes, "wav") or 0.0
 
         elapsed = time.time() - start_time
-        print(f"[Startup Audio] Loaded in {elapsed:.2f}s, {len(audio_bytes)} bytes, duration={duration:.2f}s")
+        print(
+            f"[Startup Audio] Loaded in {elapsed:.2f}s, {len(audio_bytes)} bytes, duration={duration:.2f}s"
+        )
 
         # Encode audio to base64
-        audio_base64 = base64.b64encode(audio_bytes).decode('utf-8')
+        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
 
         # Return response
-        return jsonify({
-            'audio': audio_base64,
-            'audio_format': 'wav',
-            'lip_sync': all_lip_sync,
-            'duration': duration,
-            'vts_enabled': VTS_ENABLED,
-            'processing_time': elapsed
-        })
+        return jsonify(
+            {
+                "audio": audio_base64,
+                "audio_format": "wav",
+                "lip_sync": all_lip_sync,
+                "duration": duration,
+                "vts_enabled": VTS_ENABLED,
+                "processing_time": elapsed,
+            }
+        )
 
     except Exception as e:
         print(f"[Startup Audio] Error: {e}")
         import traceback
+
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/vts/status', methods=['GET'])
+@app.route("/vts/status", methods=["GET"])
 def vts_status():
     """
     Get VTube Studio connection status
     """
     if not VTS_ENABLED:
-        return jsonify({
-            'enabled': False,
-            'connected': False,
-            'message': 'VTS integration is disabled'
-        })
-    
+        return jsonify(
+            {
+                "enabled": False,
+                "connected": False,
+                "message": "VTS integration is disabled",
+            }
+        )
+
     connected = vts_connector is not None and vts_connector.is_connected
-    
-    return jsonify({
-        'enabled': True,
-        'connected': connected,
-        'message': 'Connected' if connected else 'Not connected'
-    })
+
+    return jsonify(
+        {
+            "enabled": True,
+            "connected": connected,
+            "message": "Connected" if connected else "Not connected",
+        }
+    )
 
 
-@app.route('/vts/connect', methods=['POST'])
+@app.route("/vts/connect", methods=["POST"])
 def vts_connect():
     """
     Connect to VTube Studio and start idle animations
     """
     global vts_idle_animator
-    
+
     if not VTS_ENABLED:
-        return jsonify({'error': 'VTS integration is disabled'}), 400
-    
+        return jsonify({"error": "VTS integration is disabled"}), 400
+
     if not vts_connector:
-        return jsonify({'error': 'VTS connector not initialized'}), 500
-    
+        return jsonify({"error": "VTS connector not initialized"}), 500
+
     try:
         # Run async connect in the persistent VTS loop
         success = run_in_vts_loop(vts_connector.connect())
-        
+
         if success:
             # Start idle animations
             if vts_idle_animator:
@@ -1031,34 +1103,30 @@ def vts_connect():
                     print("[VTS] Idle animations started")
                 except Exception as e:
                     print(f"[VTS] Could not start idle animations: {e}")
-            
-            return jsonify({
-                'success': True,
-                'message': 'Connected to VTube Studio'
-            })
+
+            return jsonify({"success": True, "message": "Connected to VTube Studio"})
         else:
-            return jsonify({
-                'success': False,
-                'message': 'Failed to connect to VTube Studio'
-            }), 500
-            
+            return jsonify(
+                {"success": False, "message": "Failed to connect to VTube Studio"}
+            ), 500
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/vts/disconnect', methods=['POST'])
+@app.route("/vts/disconnect", methods=["POST"])
 def vts_disconnect():
     """
     Disconnect from VTube Studio and stop idle animations
     """
     global vts_idle_animator
-    
+
     if not VTS_ENABLED:
-        return jsonify({'error': 'VTS integration is disabled'}), 400
-    
+        return jsonify({"error": "VTS integration is disabled"}), 400
+
     if not vts_connector:
-        return jsonify({'error': 'VTS connector not initialized'}), 500
-    
+        return jsonify({"error": "VTS connector not initialized"}), 500
+
     try:
         # Stop idle animations first
         if vts_idle_animator:
@@ -1067,48 +1135,45 @@ def vts_disconnect():
                 print("[VTS] Idle animations stopped")
             except Exception as e:
                 print(f"[VTS] Error stopping idle animations: {e}")
-        
+
         run_in_vts_loop(vts_connector.disconnect())
-        
-        return jsonify({
-            'success': True,
-            'message': 'Disconnected from VTube Studio'
-        })
-        
+
+        return jsonify({"success": True, "message": "Disconnected from VTube Studio"})
+
     except Exception as e:
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/vts/set_mouth', methods=['POST'])
+@app.route("/vts/set_mouth", methods=["POST"])
 def vts_set_mouth():
     """
     Set mouth open value in VTube Studio
     Called by frontend during TTS playback for lip sync
     """
     if not VTS_ENABLED:
-        return jsonify({'error': 'VTS integration is disabled'}), 400
-    
+        return jsonify({"error": "VTS integration is disabled"}), 400
+
     if not vts_connector or not vts_connector.is_connected:
-        return jsonify({'error': 'VTS not connected'}), 400
-    
+        return jsonify({"error": "VTS not connected"}), 400
+
     data = request.get_json()
-    mouth_value = data.get('value', 0.0)
-    
+    mouth_value = data.get("value", 0.0)
+
     try:
         # Set the mouth parameter
         params = vts_lip_sync.get_mouth_parameters(mouth_value)
         success = run_in_vts_loop(vts_connector.set_parameters(params))
         success = loop.run_until_complete(vts_connector.set_parameters(params))
         loop.close()
-        
-        return jsonify({'success': success})
-        
+
+        return jsonify({"success": success})
+
     except Exception as e:
         print(f"[VTS] Error setting mouth: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/vts/play_lip_sync', methods=['POST'])
+@app.route("/vts/play_lip_sync", methods=["POST"])
 def vts_play_lip_sync():
     """
     Play lip sync data directly on VTS with gesture control.
@@ -1117,57 +1182,65 @@ def vts_play_lip_sync():
     automatic explain gesture triggering for longer responses (>60 tokens).
     """
     global vts_idle_animator, vts_gesture_controller, vts_gesture_animator
-    
+
     if not VTS_ENABLED:
-        return jsonify({'error': 'VTS integration is disabled'}), 400
-    
+        return jsonify({"error": "VTS integration is disabled"}), 400
+
     if not vts_connector or not vts_connector.is_connected:
-        return jsonify({'error': 'VTS not connected'}), 400
-    
+        return jsonify({"error": "VTS not connected"}), 400
+
     data = request.get_json()
-    lip_sync_data = data.get('lip_sync', [])
-    text = data.get('text', '')  # Text for emotion detection
-    token_count = data.get('token_count', 0)  # Estimated token count
-    
+    lip_sync_data = data.get("lip_sync", [])
+    text = data.get("text", "")  # Text for emotion detection
+    token_count = data.get("token_count", 0)  # Estimated token count
+
     if not lip_sync_data:
-        return jsonify({'success': True, 'message': 'No lip sync data'})
-    
+        return jsonify({"success": True, "message": "No lip sync data"})
+
     try:
         from vts.lip_sync import LipSyncPlayer
-        
+
         player = LipSyncPlayer(vts_lip_sync)
-        
+
         # Set up liveliness controllers
         if vts_idle_animator or vts_gesture_controller:
             player.set_liveliness_controllers(vts_idle_animator, vts_gesture_controller)
-        
+
         # --- Explain gesture automation (>60 tokens) ---
         explain_gesture_active = False
         if token_count > 60 and vts_connector.is_connected:
             try:
                 if not vts_gesture_animator:
                     vts_gesture_animator = get_gesture_animator(vts_connector)
-                
+
                 import time
-                
+
                 # Toggle explain_arm_gesture ON (sustained pose while talking)
-                run_in_vts_loop(vts_gesture_animator.trigger_gesture(GestureType.EXPLAIN_ARM, force=True))
-                explain_gesture_active = vts_gesture_animator.is_toggle_active(GestureType.EXPLAIN_ARM)
-                print(f"[VTS] Explain arm gesture toggled ON: {explain_gesture_active} (tokens={token_count})")
-                
+                run_in_vts_loop(
+                    vts_gesture_animator.trigger_gesture(
+                        GestureType.EXPLAIN_ARM, force=True
+                    )
+                )
+                explain_gesture_active = vts_gesture_animator.is_toggle_active(
+                    GestureType.EXPLAIN_ARM
+                )
+                print(
+                    f"[VTS] Explain arm gesture toggled ON: {explain_gesture_active} (tokens={token_count})"
+                )
+
             except Exception as e:
                 print(f"[VTS] Error triggering explain gestures: {e}")
                 import traceback
+
                 traceback.print_exc()
-        
+
         # Play lip sync with text for emotion-based gestures
         # Use longer timeout for lip sync since long responses can exceed 30s
         try:
             if vts_loop is None or not vts_loop.is_running():
                 raise RuntimeError("VTS loop not running")
             future = asyncio.run_coroutine_threadsafe(
-                player.play_lip_sync(vts_connector, lip_sync_data, text=text),
-                vts_loop
+                player.play_lip_sync(vts_connector, lip_sync_data, text=text), vts_loop
             )
             future.result(timeout=120)  # 2 minute timeout for long responses
         except Exception as lip_err:
@@ -1177,101 +1250,113 @@ def vts_play_lip_sync():
             if explain_gesture_active and vts_gesture_animator:
                 try:
                     import time
+
                     time.sleep(0.3)
-                    run_in_vts_loop(vts_gesture_animator.disable_toggle(GestureType.EXPLAIN_ARM))
+                    run_in_vts_loop(
+                        vts_gesture_animator.disable_toggle(GestureType.EXPLAIN_ARM)
+                    )
                     print("[VTS] Explain arm gesture toggled OFF (speech ended)")
                 except Exception as e:
                     print(f"[VTS] Error disabling explain gesture: {e}")
-        
-        return jsonify({'success': True, 'explain_triggered': explain_gesture_active})
-        
+
+        return jsonify({"success": True, "explain_triggered": explain_gesture_active})
+
     except Exception as e:
         print(f"[VTS] Error playing lip sync: {e}")
         import traceback
+
         traceback.print_exc()
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/vts/trigger_gesture', methods=['POST'])
+@app.route("/vts/trigger_gesture", methods=["POST"])
 def vts_trigger_gesture():
     """
     Trigger a specific gesture animation in VTube Studio.
-    Supports: wave_hello, nod_head_agree, explain_arm_gesture, 
+    Supports: wave_hello, nod_head_agree, explain_arm_gesture,
               explain_hand_left, explain_hand_right, idle_waiting
     """
     global vts_gesture_animator
-    
+
     if not VTS_ENABLED:
-        return jsonify({'error': 'VTS integration is disabled'}), 400
-    
+        return jsonify({"error": "VTS integration is disabled"}), 400
+
     if not vts_connector or not vts_connector.is_connected:
-        return jsonify({'error': 'VTS not connected'}), 400
-    
+        return jsonify({"error": "VTS not connected"}), 400
+
     data = request.get_json()
-    gesture_name = data.get('gesture', '')
-    force = data.get('force', False)
-    
+    gesture_name = data.get("gesture", "")
+    force = data.get("force", False)
+
     # Map gesture names to GestureType
     gesture_map = {
-        'wave_hello': GestureType.WAVE_HELLO,
-        'nod_head_agree': GestureType.NOD_AGREE,
-        'explain_arm_gesture': GestureType.EXPLAIN_ARM,
-        'explain_hand_left': GestureType.EXPLAIN_LEFT,
-        'explain_hand_right': GestureType.EXPLAIN_RIGHT,
-        'idle_waiting': GestureType.IDLE_WAITING,
+        "wave_hello": GestureType.WAVE_HELLO,
+        "nod_head_agree": GestureType.NOD_AGREE,
+        "explain_arm_gesture": GestureType.EXPLAIN_ARM,
+        "explain_hand_left": GestureType.EXPLAIN_LEFT,
+        "explain_hand_right": GestureType.EXPLAIN_RIGHT,
+        "idle_waiting": GestureType.IDLE_WAITING,
     }
-    
+
     gesture = gesture_map.get(gesture_name)
     if not gesture:
-        return jsonify({
-            'error': f'Unknown gesture: {gesture_name}',
-            'available': list(gesture_map.keys())
-        }), 400
-    
+        return jsonify(
+            {
+                "error": f"Unknown gesture: {gesture_name}",
+                "available": list(gesture_map.keys()),
+            }
+        ), 400
+
     try:
         if not vts_gesture_animator:
             vts_gesture_animator = get_gesture_animator(vts_connector)
-        
-        success = run_in_vts_loop(vts_gesture_animator.trigger_gesture(gesture, force=force))
-        
-        return jsonify({
-            'success': success,
-            'gesture': gesture_name,
-            'toggle_active': vts_gesture_animator.is_toggle_active(gesture) if gesture in [GestureType.EXPLAIN_ARM] else None
-        })
-        
+
+        success = run_in_vts_loop(
+            vts_gesture_animator.trigger_gesture(gesture, force=force)
+        )
+
+        return jsonify(
+            {
+                "success": success,
+                "gesture": gesture_name,
+                "toggle_active": vts_gesture_animator.is_toggle_active(gesture)
+                if gesture in [GestureType.EXPLAIN_ARM]
+                else None,
+            }
+        )
+
     except Exception as e:
         print(f"[VTS] Error triggering gesture: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/vts/detect_and_trigger', methods=['POST'])
+@app.route("/vts/detect_and_trigger", methods=["POST"])
 def vts_detect_and_trigger():
     """
     Detect intent from text and trigger appropriate gesture.
     Used for automatic gesture triggering based on user input.
     """
     global vts_gesture_animator
-    
+
     if not VTS_ENABLED:
-        return jsonify({'error': 'VTS integration is disabled'}), 400
-    
+        return jsonify({"error": "VTS integration is disabled"}), 400
+
     if not vts_connector or not vts_connector.is_connected:
-        return jsonify({'error': 'VTS not connected'}), 400
-    
+        return jsonify({"error": "VTS not connected"}), 400
+
     data = request.get_json()
-    text = data.get('text', '')
-    source = data.get('source', 'user')  # 'user' or 'ai'
-    
+    text = data.get("text", "")
+    source = data.get("source", "user")  # 'user' or 'ai'
+
     if not text:
-        return jsonify({'error': 'Text is required'}), 400
-    
+        return jsonify({"error": "Text is required"}), 400
+
     try:
         if not vts_gesture_animator:
             vts_gesture_animator = get_gesture_animator(vts_connector)
-        
+
         # Detect and trigger based on source
-        if source == 'user':
+        if source == "user":
             triggered_gesture = run_in_vts_loop(
                 vts_gesture_animator.auto_trigger_from_user_input(text)
             )
@@ -1279,159 +1364,214 @@ def vts_detect_and_trigger():
             triggered_gesture = run_in_vts_loop(
                 vts_gesture_animator.auto_trigger_from_ai_response(text)
             )
-        
-        return jsonify({
-            'success': triggered_gesture is not None,
-            'gesture': triggered_gesture.value if triggered_gesture else None,
-            'source': source,
-            'text_preview': text[:50] + '...' if len(text) > 50 else text
-        })
-        
+
+        return jsonify(
+            {
+                "success": triggered_gesture is not None,
+                "gesture": triggered_gesture.value if triggered_gesture else None,
+                "source": source,
+                "text_preview": text[:50] + "..." if len(text) > 50 else text,
+            }
+        )
+
     except Exception as e:
         print(f"[VTS] Error in detect and trigger: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/vts/disable_explain_gesture', methods=['POST'])
+@app.route("/vts/disable_explain_gesture", methods=["POST"])
 def vts_disable_explain_gesture():
     """
     Disable the explain_arm_gesture toggle.
     Should be called after AI finishes explaining.
     """
     global vts_gesture_animator
-    
+
     if not VTS_ENABLED:
-        return jsonify({'error': 'VTS integration is disabled'}), 400
-    
+        return jsonify({"error": "VTS integration is disabled"}), 400
+
     if not vts_connector or not vts_connector.is_connected:
-        return jsonify({'error': 'VTS not connected'}), 400
-    
+        return jsonify({"error": "VTS not connected"}), 400
+
     try:
         if not vts_gesture_animator:
-            return jsonify({'success': True, 'message': 'Gesture animator not initialized'})
-        
-        success = run_in_vts_loop(vts_gesture_animator.disable_toggle(GestureType.EXPLAIN_ARM))
-        
-        return jsonify({
-            'success': success,
-            'message': 'Explain gesture disabled' if success else 'Failed to disable explain gesture'
-        })
-        
+            return jsonify(
+                {"success": True, "message": "Gesture animator not initialized"}
+            )
+
+        success = run_in_vts_loop(
+            vts_gesture_animator.disable_toggle(GestureType.EXPLAIN_ARM)
+        )
+
+        return jsonify(
+            {
+                "success": success,
+                "message": "Explain gesture disabled"
+                if success
+                else "Failed to disable explain gesture",
+            }
+        )
+
     except Exception as e:
         print(f"[VTS] Error disabling explain gesture: {e}")
-        return jsonify({'error': str(e)}), 500
+        return jsonify({"error": str(e)}), 500
 
 
-@app.route('/vts/gesture_status', methods=['GET'])
+@app.route("/vts/gesture_status", methods=["GET"])
 def vts_gesture_status():
     """Get current gesture animator status."""
     global vts_gesture_animator
-    
+
     if not VTS_ENABLED:
-        return jsonify({'enabled': False})
-    
+        return jsonify({"enabled": False})
+
     if not vts_gesture_animator:
-        return jsonify({
-            'enabled': True,
-            'initialized': False,
-            'connected': vts_connector.is_connected if vts_connector else False
-        })
-    
-    return jsonify({
-        'enabled': True,
-        'initialized': True,
-        'connected': vts_connector.is_connected if vts_connector else False,
-        'active_toggles': [g.value for g in vts_gesture_animator.get_active_toggles()],
-        'available_gestures': [
-            'wave_hello', 'nod_head_agree', 'explain_arm_gesture',
-            'explain_hand_left', 'explain_hand_right', 'idle_waiting'
-        ]
-    })
+        return jsonify(
+            {
+                "enabled": True,
+                "initialized": False,
+                "connected": vts_connector.is_connected if vts_connector else False,
+            }
+        )
+
+    return jsonify(
+        {
+            "enabled": True,
+            "initialized": True,
+            "connected": vts_connector.is_connected if vts_connector else False,
+            "active_toggles": [
+                g.value for g in vts_gesture_animator.get_active_toggles()
+            ],
+            "available_gestures": [
+                "wave_hello",
+                "nod_head_agree",
+                "explain_arm_gesture",
+                "explain_hand_left",
+                "explain_hand_right",
+                "idle_waiting",
+            ],
+        }
+    )
+
+
+# ============================================
+# API Documentation (Swagger UI)
+# ============================================
+
+DOCS_PASSWORD = os.getenv("DOCS_PASSWORD", "uitmtapah707")
+
+
+@app.route("/docs")
+def docs_page():
+    """Render API documentation page with password gate."""
+    authenticated = session.get("docs_authenticated", False)
+    return render_template("docs.html", authenticated=authenticated)
+
+
+@app.route("/docs/auth", methods=["POST"])
+def docs_auth():
+    """Authenticate access to documentation."""
+    data = request.get_json(silent=True) or {}
+    password = data.get("password", "")
+
+    if password == DOCS_PASSWORD:
+        session["docs_authenticated"] = True
+        return jsonify({"success": True})
+
+    return jsonify({"success": False, "error": "Invalid password"}), 401
+
+
+@app.route("/docs/logout")
+def docs_logout():
+    """Logout from documentation."""
+    session.pop("docs_authenticated", None)
+    return redirect("/docs")
+
+
+@app.route("/openapi.json")
+def openapi_spec():
+    """Serve OpenAPI specification (requires docs authentication)."""
+    if not session.get("docs_authenticated", False):
+        return jsonify({"error": "Authentication required"}), 401
+
+    return send_from_directory("static", "openapi.json", mimetype="application/json")
 
 
 @app.errorhandler(404)
 def not_found(error):
-    return jsonify({'error': 'Not found'}), 404
+    return jsonify({"error": "Not found"}), 404
 
 
 @app.errorhandler(500)
 def internal_error(error):
-    return jsonify({'error': 'Internal server error'}), 500
+    return jsonify({"error": "Internal server error"}), 500
 
 
 # ============================================
 # WebSocket Event Handlers for Remote Control
 # ============================================
 
-@socketio.on('connect')
+
+@socketio.on("connect")
 def handle_connect():
     """Handle client connection."""
-    print(f'[WebSocket] Client connected: {request.sid}')
-    emit('connected', {'sid': request.sid})
+    print(f"[WebSocket] Client connected: {request.sid}")
+    emit("connected", {"sid": request.sid})
 
 
-@socketio.on('disconnect')
+@socketio.on("disconnect")
 def handle_disconnect():
     """Handle client disconnection."""
     sid = request.sid
-    print(f'[WebSocket] Client disconnected: {sid}')
+    print(f"[WebSocket] Client disconnected: {sid}")
 
     # Remove from connected devices
     if sid in connected_devices:
         device_info = connected_devices[sid]
-        room = device_info.get('room')
-        role = device_info.get('role')
+        room = device_info.get("room")
+        role = device_info.get("role")
 
         # Notify other devices in the room
         if room:
-            emit('device_disconnected', {
-                'sid': sid,
-                'role': role
-            }, room=room)
+            emit("device_disconnected", {"sid": sid, "role": role}, room=room)
 
         del connected_devices[sid]
 
 
-@socketio.on('join_session')
+@socketio.on("join_session")
 def handle_join_session(data):
     """
     Join a session room with a specific role.
     Data: {'room': str, 'role': 'master'|'remote'|'standalone'}
     """
-    room = data.get('room', 'default')
-    role = data.get('role', 'standalone')
+    room = data.get("room", "default")
+    role = data.get("role", "standalone")
     sid = request.sid
 
     # Join the room
     join_room(room)
 
     # Store device info
-    connected_devices[sid] = {
-        'role': role,
-        'room': room
-    }
+    connected_devices[sid] = {"role": role, "room": room}
 
     print(f'[WebSocket] Device joined room "{room}" as {role}: {sid}')
 
     # Notify others in the room
-    emit('device_joined', {
-        'sid': sid,
-        'role': role
-    }, room=room, include_self=False)
+    emit("device_joined", {"sid": sid, "role": role}, room=room, include_self=False)
 
     # Send current device list to the new device
     devices_in_room = [
-        {'sid': s, 'role': d['role']}
+        {"sid": s, "role": d["role"]}
         for s, d in connected_devices.items()
-        if d['room'] == room and s != sid
+        if d["room"] == room and s != sid
     ]
-    emit('device_list', {'devices': devices_in_room})
+    emit("device_list", {"devices": devices_in_room})
 
 
-@socketio.on('leave_session')
+@socketio.on("leave_session")
 def handle_leave_session(data):
     """Leave a session room."""
-    room = data.get('room', 'default')
+    room = data.get("room", "default")
     sid = request.sid
 
     leave_room(room)
@@ -1440,142 +1580,153 @@ def handle_leave_session(data):
         del connected_devices[sid]
 
     print(f'[WebSocket] Device left room "{room}": {sid}')
-    emit('device_left', {'sid': sid}, room=room)
+    emit("device_left", {"sid": sid}, room=room)
 
 
-@socketio.on('remote_message')
+@socketio.on("remote_message")
 def handle_remote_message(data):
     """
     Receive message from remote device and forward to master.
     Data: {'message': str, 'room': str}
     """
-    room = data.get('room', 'default')
-    message = data.get('message', '')
+    room = data.get("room", "default")
+    message = data.get("message", "")
     sid = request.sid
 
     print(f'[WebSocket] Remote message from {sid} in room "{room}": {message[:50]}...')
 
     # Forward to master device(s) in the room
-    emit('master_receive_message', {
-        'message': message,
-        'from_sid': sid,
-        'room': room
-    }, room=room, include_self=False)
+    emit(
+        "master_receive_message",
+        {"message": message, "from_sid": sid, "room": room},
+        room=room,
+        include_self=False,
+    )
 
 
-@socketio.on('remote_start_recording')
+@socketio.on("remote_start_recording")
 def handle_remote_start_recording(data):
     """
     Remote device requests master to start recording.
     Data: {'room': str}
     """
-    room = data.get('room', 'default')
+    room = data.get("room", "default")
     sid = request.sid
 
     print(f'[WebSocket] Remote start recording request from {sid} in room "{room}"')
 
     # Forward to master device(s) in the room
-    emit('master_start_recording', {
-        'from_sid': sid,
-        'room': room
-    }, room=room, include_self=False)
+    emit(
+        "master_start_recording",
+        {"from_sid": sid, "room": room},
+        room=room,
+        include_self=False,
+    )
 
 
-@socketio.on('remote_stop_recording')
+@socketio.on("remote_stop_recording")
 def handle_remote_stop_recording(data):
     """
     Remote device requests master to stop recording.
     Data: {'room': str}
     """
-    room = data.get('room', 'default')
+    room = data.get("room", "default")
     sid = request.sid
 
     print(f'[WebSocket] Remote stop recording request from {sid} in room "{room}"')
 
     # Forward to master device(s) in the room
-    emit('master_stop_recording', {
-        'from_sid': sid,
-        'room': room
-    }, room=room, include_self=False)
+    emit(
+        "master_stop_recording",
+        {"from_sid": sid, "room": room},
+        room=room,
+        include_self=False,
+    )
 
 
-@socketio.on('master_transcribed_text')
+@socketio.on("master_transcribed_text")
 def handle_master_transcribed_text(data):
     """
     Master sends transcribed text from mic to remote devices.
     Data: {'text': str, 'room': str}
     """
-    room = data.get('room', 'default')
-    text = data.get('text', '')
+    room = data.get("room", "default")
+    text = data.get("text", "")
 
     print(f'[WebSocket] Master transcribed text in room "{room}": {text[:50]}...')
 
     # Forward to remote devices in the room
-    emit('remote_receive_transcribed', {
-        'text': text,
-        'room': room
-    }, room=room, include_self=False)
+    emit(
+        "remote_receive_transcribed",
+        {"text": text, "room": room},
+        room=room,
+        include_self=False,
+    )
 
 
-@socketio.on('master_chat_update')
+@socketio.on("master_chat_update")
 def handle_master_chat_update(data):
     """
     Master sends chat state updates to remote devices.
     Data: {'messages': list, 'currentContent': str, 'room': str}
     """
-    room = data.get('room', 'default')
+    room = data.get("room", "default")
 
     # Forward to remote devices in the room
-    emit('remote_chat_update', data, room=room, include_self=False)
+    emit("remote_chat_update", data, room=room, include_self=False)
 
 
-@socketio.on('master_ai_response_start')
+@socketio.on("master_ai_response_start")
 def handle_master_ai_response_start(data):
     """
     Master notifies remote that AI is starting to respond.
     Data: {'room': str}
     """
-    room = data.get('room', 'default')
-    emit('remote_ai_response_start', {'room': room}, room=room, include_self=False)
+    room = data.get("room", "default")
+    emit("remote_ai_response_start", {"room": room}, room=room, include_self=False)
 
 
-@socketio.on('master_ai_response_chunk')
+@socketio.on("master_ai_response_chunk")
 def handle_master_ai_response_chunk(data):
     """
     Master sends AI response chunk to remote devices.
     Data: {'chunk': str, 'room': str}
     """
-    room = data.get('room', 'default')
-    emit('remote_ai_response_chunk', data, room=room, include_self=False)
+    room = data.get("room", "default")
+    emit("remote_ai_response_chunk", data, room=room, include_self=False)
 
 
-@socketio.on('master_ai_response_end')
+@socketio.on("master_ai_response_end")
 def handle_master_ai_response_end(data):
     """
     Master notifies remote that AI response is complete.
     Data: {'room': str}
     """
-    room = data.get('room', 'default')
-    emit('remote_ai_response_end', {'room': room}, room=room, include_self=False)
+    room = data.get("room", "default")
+    emit("remote_ai_response_end", {"room": room}, room=room, include_self=False)
 
 
-@socketio.on('master_recording_state')
+@socketio.on("master_recording_state")
 def handle_master_recording_state(data):
     """
     Master notifies remote devices about recording state.
     Data: {'isRecording': bool, 'room': str}
     """
-    room = data.get('room', 'default')
-    is_recording = data.get('isRecording', False)
+    room = data.get("room", "default")
+    is_recording = data.get("isRecording", False)
 
-    print(f'[WebSocket] Master recording state in room "{room}": {"recording" if is_recording else "stopped"}')
+    print(
+        f'[WebSocket] Master recording state in room "{room}": {"recording" if is_recording else "stopped"}'
+    )
 
     # Forward to remote devices in the room
-    emit('remote_recording_state', {
-        'isRecording': is_recording,
-        'room': room
-    }, room=room, include_self=False)
+    emit(
+        "remote_recording_state",
+        {"isRecording": is_recording, "room": room},
+        room=room,
+        include_self=False,
+    )
 
 
-if __name__ == '__main__':
-    socketio.run(app, debug=True, host='0.0.0.0', port=5000)
+if __name__ == "__main__":
+    socketio.run(app, debug=True, host="0.0.0.0", port=5000)

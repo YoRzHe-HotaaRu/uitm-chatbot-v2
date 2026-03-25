@@ -1,0 +1,548 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>UiTM AI Receptionist - API Documentation</title>
+    <link rel="icon" type="image/png" href="/static/assets/uitm-logo.png">
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+            background: #f8fafc;
+            color: #1e293b;
+            min-height: 100vh;
+        }
+
+        /* Password Gate */
+        .auth-gate {
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            min-height: 100vh;
+            background: linear-gradient(135deg, #f0f9ff 0%, #e0f2fe 100%);
+        }
+
+        .auth-card {
+            background: #ffffff;
+            border: 1px solid #e2e8f0;
+            border-radius: 16px;
+            padding: 48px;
+            width: 100%;
+            max-width: 420px;
+            box-shadow: 0 25px 50px -12px rgba(0, 0, 0, 0.1);
+        }
+
+        .auth-card .logo {
+            text-align: center;
+            margin-bottom: 32px;
+        }
+
+        .auth-card .logo img {
+            width: 64px;
+            height: 64px;
+            border-radius: 12px;
+            margin-bottom: 16px;
+        }
+
+        .auth-card .logo h1 {
+            font-size: 20px;
+            font-weight: 700;
+            color: #0f172a;
+            margin-bottom: 4px;
+        }
+
+        .auth-card .logo p {
+            font-size: 13px;
+            color: #64748b;
+        }
+
+        .auth-card .form-group {
+            margin-bottom: 20px;
+        }
+
+        .auth-card label {
+            display: block;
+            font-size: 13px;
+            font-weight: 600;
+            color: #475569;
+            margin-bottom: 8px;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .auth-card input[type="password"] {
+            width: 100%;
+            padding: 12px 16px;
+            background: #f8fafc;
+            border: 1px solid #e2e8f0;
+            border-radius: 8px;
+            color: #0f172a;
+            font-size: 15px;
+            outline: none;
+            transition: border-color 0.2s;
+        }
+
+        .auth-card input[type="password"]:focus {
+            border-color: #3b82f6;
+        }
+
+        .auth-card .btn-submit {
+            width: 100%;
+            padding: 12px;
+            background: #3b82f6;
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 15px;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        .auth-card .btn-submit:hover {
+            background: #2563eb;
+        }
+
+        .auth-card .error-msg {
+            display: none;
+            margin-top: 16px;
+            padding: 10px 14px;
+            background: #fef2f2;
+            border: 1px solid #fecaca;
+            border-radius: 8px;
+            color: #dc2626;
+            font-size: 13px;
+        }
+
+        /* Swagger Container */
+        .swagger-container {
+            display: none;
+        }
+
+        .swagger-header {
+            background: #ffffff;
+            border-bottom: 1px solid #e2e8f0;
+            padding: 16px 24px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            position: sticky;
+            top: 0;
+            z-index: 100;
+        }
+
+        .swagger-header .header-left {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .swagger-header .header-left img {
+            width: 32px;
+            height: 32px;
+            border-radius: 6px;
+        }
+
+        .swagger-header h1 {
+            font-size: 16px;
+            font-weight: 700;
+            color: #0f172a;
+        }
+
+        .swagger-header .header-right {
+            display: flex;
+            align-items: center;
+            gap: 12px;
+        }
+
+        .swagger-header .badge {
+            padding: 4px 10px;
+            background: #d1fae5;
+            color: #065f46;
+            border-radius: 9999px;
+            font-size: 11px;
+            font-weight: 600;
+            text-transform: uppercase;
+            letter-spacing: 0.5px;
+        }
+
+        .swagger-header .btn-logout {
+            padding: 6px 14px;
+            background: #f1f5f9;
+            color: #475569;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            font-size: 12px;
+            font-weight: 600;
+            cursor: pointer;
+            text-decoration: none;
+            transition: background 0.2s;
+        }
+
+        .swagger-header .btn-logout:hover {
+            background: #e2e8f0;
+        }
+
+        /* Override Swagger UI theme - Light */
+        #swagger-ui {
+            padding: 0;
+        }
+
+        #swagger-ui .topbar {
+            display: none !important;
+        }
+
+        #swagger-ui .information-container {
+            background: #ffffff !important;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        #swagger-ui .info .title {
+            color: #0f172a !important;
+        }
+
+        #swagger-ui .info .description p {
+            color: #64748b !important;
+        }
+
+        #swagger-ui .scheme-container {
+            background: #ffffff !important;
+            box-shadow: none !important;
+            border-bottom: 1px solid #e2e8f0;
+        }
+
+        #swagger-ui .opblock-tag {
+            color: #0f172a !important;
+            border-bottom-color: #e2e8f0 !important;
+        }
+
+        #swagger-ui .opblock-tag:hover {
+            background: rgba(59, 130, 246, 0.04) !important;
+        }
+
+        #swagger-ui .opblock .opblock-summary-operation-id,
+        #swagger-ui .opblock .opblock-summary-path,
+        #swagger-ui .opblock .opblock-summary-path__deprecated {
+            color: #1e293b !important;
+        }
+
+        #swagger-ui .opblock .opblock-summary-description {
+            color: #64748b !important;
+        }
+
+        #swagger-ui .opblock.opblock-get {
+            background: rgba(59, 130, 246, 0.06) !important;
+            border-color: #3b82f6 !important;
+        }
+
+        #swagger-ui .opblock.opblock-get .opblock-summary-method {
+            background: #3b82f6 !important;
+        }
+
+        #swagger-ui .opblock.opblock-post {
+            background: rgba(16, 185, 129, 0.06) !important;
+            border-color: #10b981 !important;
+        }
+
+        #swagger-ui .opblock.opblock-post .opblock-summary-method {
+            background: #10b981 !important;
+        }
+
+        #swagger-ui .model-title {
+            color: #1e293b !important;
+        }
+
+        #swagger-ui section.models {
+            border-color: #e2e8f0 !important;
+        }
+
+        #swagger-ui section.models.is-open h4 {
+            border-bottom-color: #e2e8f0 !important;
+            color: #0f172a !important;
+        }
+
+        #swagger-ui section.models h4 {
+            color: #64748b !important;
+        }
+
+        #swagger-ui .model-container {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+        }
+
+        #swagger-ui .model {
+            color: #475569 !important;
+        }
+
+        #swagger-ui .model .property.primitive {
+            color: #7c3aed !important;
+        }
+
+        #swagger-ui table thead tr td,
+        #swagger-ui table thead tr th {
+            color: #64748b !important;
+            border-bottom-color: #e2e8f0 !important;
+        }
+
+        #swagger-ui .parameter__name {
+            color: #0f172a !important;
+        }
+
+        #swagger-ui .parameter__type {
+            color: #7c3aed !important;
+        }
+
+        #swagger-ui .parameter__in {
+            color: #94a3b8 !important;
+        }
+
+        #swagger-ui .response-col_status {
+            color: #1e293b !important;
+        }
+
+        #swagger-ui .response-col_description {
+            color: #64748b !important;
+        }
+
+        #swagger-ui .opblock-body pre {
+            background: #f8fafc !important;
+            color: #1e293b !important;
+        }
+
+        #swagger-ui .highlight-code {
+            background: #f8fafc !important;
+        }
+
+        #swagger-ui .highlight-code .microlight {
+            color: #1e293b !important;
+        }
+
+        #swagger-ui .copy-to-clipboard {
+            background: #e2e8f0 !important;
+        }
+
+        #swagger-ui .btn-group .btn {
+            background: #f1f5f9 !important;
+            color: #475569 !important;
+            border-color: #e2e8f0 !important;
+        }
+
+        #swagger-ui .btn-group .btn:hover {
+            background: #e2e8f0 !important;
+        }
+
+        #swagger-ui .btn.authorize {
+            color: #059669 !important;
+            border-color: #059669 !important;
+        }
+
+        #swagger-ui .btn.execute {
+            background: #3b82f6 !important;
+            border-color: #3b82f6 !important;
+        }
+
+        #swagger-ui .loading-container .loading::after {
+            color: #64748b !important;
+        }
+
+        #swagger-ui select {
+            background: #ffffff !important;
+            color: #1e293b !important;
+            border-color: #e2e8f0 !important;
+        }
+
+        #swagger-ui .dialog-ux .modal-ux {
+            background: #ffffff !important;
+            border-color: #e2e8f0 !important;
+        }
+
+        #swagger-ui .dialog-ux .modal-ux-header {
+            border-bottom-color: #e2e8f0 !important;
+        }
+
+        #swagger-ui .dialog-ux .modal-ux-header h3 {
+            color: #0f172a !important;
+        }
+
+        #swagger-ui .dialog-ux .modal-ux-content p {
+            color: #475569 !important;
+        }
+
+        #swagger-ui input[type="text"],
+        #swagger-ui input[type="password"],
+        #swagger-ui textarea {
+            background: #ffffff !important;
+            color: #1e293b !important;
+            border-color: #e2e8f0 !important;
+        }
+
+        #swagger-ui .tab li {
+            color: #64748b !important;
+        }
+
+        #swagger-ui .tab li.active {
+            color: #3b82f6 !important;
+            border-bottom-color: #3b82f6 !important;
+        }
+
+        #swagger-ui .opblock-description-wrapper,
+        #swagger-ui .opblock-external-docs-wrapper {
+            color: #64748b !important;
+        }
+
+        #swagger-ui .opblock-section-header h4 {
+            color: #0f172a !important;
+        }
+
+        #swagger-ui .opblock-section-header {
+            background: transparent !important;
+            box-shadow: none !important;
+        }
+
+        #swagger-ui .markdown p,
+        #swagger-ui .markdown li,
+        #swagger-ui .renderedMarkdown p {
+            color: #475569 !important;
+        }
+
+        #swagger-ui .markdown code,
+        #swagger-ui .renderedMarkdown code {
+            background: #f1f5f9 !important;
+            color: #7c3aed !important;
+        }
+
+        #swagger-ui .wrapper {
+            background: transparent !important;
+        }
+
+        #swagger-ui .servers-title {
+            color: #0f172a !important;
+        }
+
+        /* Background for swagger sections */
+        .swagger-bg {
+            background: #f8fafc;
+            min-height: 100vh;
+        }
+    </style>
+</head>
+<body>
+    <!-- Password Gate -->
+    <div class="auth-gate" id="authGate">
+        <div class="auth-card">
+            <div class="logo">
+                <img src="/static/assets/uitm-logo.png" alt="UiTM Logo" onerror="this.style.display='none'">
+                <h1>UiTM AI Receptionist</h1>
+                <p>API Documentation Access</p>
+            </div>
+            <form id="authForm">
+                <div class="form-group">
+                    <label for="password">Access Password</label>
+                    <input type="password" id="password" name="password" placeholder="Enter documentation password" autocomplete="current-password" required>
+                </div>
+                <button type="submit" class="btn-submit">Access Documentation</button>
+                <div class="error-msg" id="errorMsg">Invalid password. Please try again.</div>
+            </form>
+        </div>
+    </div>
+
+    <!-- Swagger UI Container -->
+    <div class="swagger-container" id="swaggerContainer">
+        <div class="swagger-header">
+            <div class="header-left">
+                <img src="/static/assets/uitm-logo.png" alt="UiTM Logo" onerror="this.style.display='none'">
+                <h1>UiTM AI Receptionist - API Docs</h1>
+            </div>
+            <div class="header-right">
+                <span class="badge">Authenticated</span>
+                <a href="/docs/logout" class="btn-logout">Logout</a>
+            </div>
+        </div>
+        <div class="swagger-bg">
+            <div id="swagger-ui"></div>
+        </div>
+    </div>
+
+    <script>
+        (function() {
+            const authenticated = {{ 'true' if authenticated else 'false' }};
+
+            if (authenticated) {
+                showSwagger();
+            }
+
+            document.getElementById('authForm').addEventListener('submit', async function(e) {
+                e.preventDefault();
+                const password = document.getElementById('password').value;
+                const errorMsg = document.getElementById('errorMsg');
+                const btn = this.querySelector('.btn-submit');
+
+                btn.textContent = 'Verifying...';
+                btn.disabled = true;
+                errorMsg.style.display = 'none';
+
+                try {
+                    const res = await fetch('/docs/auth', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({ password: password })
+                    });
+
+                    const data = await res.json();
+
+                    if (data.success) {
+                        showSwagger();
+                    } else {
+                        errorMsg.textContent = data.error || 'Invalid password';
+                        errorMsg.style.display = 'block';
+                        btn.textContent = 'Access Documentation';
+                        btn.disabled = false;
+                    }
+                } catch (err) {
+                    errorMsg.textContent = 'Connection error. Please try again.';
+                    errorMsg.style.display = 'block';
+                    btn.textContent = 'Access Documentation';
+                    btn.disabled = false;
+                }
+            });
+
+            function showSwagger() {
+                document.getElementById('authGate').style.display = 'none';
+                document.getElementById('swaggerContainer').style.display = 'block';
+
+                const script = document.createElement('script');
+                script.src = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui-bundle.js';
+                script.onload = function() {
+                    SwaggerUIBundle({
+                        url: '/openapi.json',
+                        dom_id: '#swagger-ui',
+                        deepLinking: true,
+                        presets: [
+                            SwaggerUIBundle.presets.apis,
+                            SwaggerUIBundle.SwaggerUIStandalonePreset
+                        ],
+                        layout: 'BaseLayout',
+                        defaultModelsExpandDepth: 1,
+                        defaultModelExpandDepth: 1,
+                        docExpansion: 'list',
+                        filter: true,
+                        tryItOutEnabled: true
+                    });
+                };
+                document.head.appendChild(script);
+
+                const link = document.createElement('link');
+                link.rel = 'stylesheet';
+                link.href = 'https://cdn.jsdelivr.net/npm/swagger-ui-dist@5/swagger-ui.css';
+                document.head.appendChild(link);
+            }
+        })();
+    </script>
+</body>
+</html>
