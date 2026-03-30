@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+@page{margin:40px 50px;size:A4}body{font-family:Arial,sans-serif;color:#222;line-height:1.6;font-size:12px}h1{text-align:center;font-size:24px;color:#1d3557;border-bottom:3px solid #e63946;padding-bottom:10px}h2{font-size:17px;color:#1d3557;border-bottom:2px solid #457b9d;padding-bottom:4px;margin-top:25px}h3{font-size:14px;color:#457b9d;margin-top:15px}code{background:#f1f3f5;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:11px}pre{background:#1d3557;color:#edf2f4;padding:12px 16px;border-radius:4px;font-family:monospace;font-size:11px;overflow-x:auto;white-space:pre-wrap}table{width:100%;border-collapse:collapse;margin:10px 0 15px;font-size:11.5px}th{background:#1d3557;color:#fff;padding:8px 10px;text-align:left}td{padding:7px 10px;border-bottom:1px solid #ddd}tr:nth-child(even){background:#f8f9fa}.badge{display:inline-block;padding:2px 8px;border-radius:3px;font-size:10px;font-weight:bold}.badge-get{background:#27ae60;color:#fff}.badge-post{background:#e67e22;color:#fff}.info-box{background:#f0f4f8;border-left:4px solid #457b9d;padding:10px 14px;margin:10px 0}.warn-box{background:#fff3cd;border-left:4px solid #f4a261;padding:10px 14px;margin:10px 0}.footer{text-align:center;color:#999;font-size:10px;margin-top:30px;border-top:1px solid #ddd;padding-top:8px}.subtitle{text-align:center;color:#666;font-size:13px;margin-bottom:25px}.toc{background:#f8f9fa;padding:12px 18px;border:1px solid #ddd;margin-bottom:20px}.toc li{margin:3px 0}ul{padding-left:20px}li{margin:2px 0}</style></head><body>
+<h1>Pembantu AI UiTM V2</h1><p class="subtitle">Official AI Receptionist for Universiti Teknologi MARA<br>Complete Documentation &bull; March 30, 2026</p>
+<div class="toc"><strong>Contents:</strong><ol><li>Overview</li><li>Installation &amp; Setup</li><li>Environment Config</li><li>Project Structure</li><li>API Endpoints</li><li>RAG System</li><li>VTube Studio Integration</li><li>TTS</li><li>Troubleshooting</li></ol></div>
+<h2>1. Overview</h2><p><strong>Pembantu AI UiTM V2</strong> is an AI chatbot for Universiti Teknologi MARA, Malaysia. It assists visitors, staff, students, and lecturers with university information in Bahasa Melayu.</p>
+<h3>Key Features</h3><ul><li>OpenRouter AI Integration (200+ models)</li><li>RAG System for knowledge base queries</li><li>Swedish Geometric Design (sharp edges, no rounded corners)</li><li>Light &amp; Dark Theme</li><li>Responsive (desktop + mobile)</li><li>Live Reasoning Display (streaming)</li><li>VTube Studio Live2D lip sync</li><li>Voice transcription &amp; Minimax TTS</li><li>WebSocket remote control</li></ul>
+<h2>2. Installation &amp; Setup</h2>
+<h3>Prerequisites</h3><ul><li>Python 3.8+</li><li>OpenRouter API Key</li><li>(Optional) Minimax API Key for TTS</li><li>(Optional) VTube Studio + ffmpeg for avatar</li></ul>
+<h3>Steps</h3><pre>git clone https://github.com/YoRzHe-HotaaRu/Pembantu-AI-UiTM-V2.git
+cd Pembantu-AI-UiTM-V2
+python -m venv .venv
+source .venv/bin/activate  # Linux/Mac
+pip install -r requirements.txt
+cp .env.example .env
+# Edit .env with your API keys
+python app.py</pre><div class="info-box">App runs at <code>http://localhost:5000</code></div>
+<h2>3. Environment Configuration</h2><table><tr><th>Variable</th><th>Required</th><th>Default</th></tr><tr><td><code>OPENROUTER_API_KEY</code></td><td>Yes</td><td>&mdash;</td></tr><tr><td><code>FLASK_SECRET_KEY</code></td><td>Yes</td><td>&mdash;</td></tr><tr><td><code>DEFAULT_MODEL</code></td><td>No</td><td>google/gemini-3.1-flash-lite-preview</td></tr><tr><td><code>MINIMAX_API_KEY</code></td><td>No</td><td>&mdash;</td></tr><tr><td><code>MINIMAX_TTS_VOICE</code></td><td>No</td><td>Malay_male_1_v1</td></tr><tr><td><code>ENABLE_RAG</code></td><td>No</td><td>true</td></tr><tr><td><code>RAG_USE_ADVANCED</code></td><td>No</td><td>false</td></tr><tr><td><code>VTS_ENABLED</code></td><td>No</td><td>false</td></tr><tr><td><code>VTS_HOST</code></td><td>No</td><td>localhost</td></tr><tr><td><code>VTS_PORT</code></td><td>No</td><td>8001</td></tr></table>
+<h2>4. Project Structure</h2><pre>Pembantu-AI-UiTM-V2/
+app.py - Main Flask app &amp; API routes
+minimax_tts.py - Minimax TTS module
+tts_optimized.py - Optimized TTS with chunking
+static/css/styles.css - Swedish geometric CSS
+static/js/app.js - Frontend logic
+templates/index.html - Chat interface
+vts/ - VTube Studio (connector, lip sync, expressions)
+rag/ - RAG system (manager, retriever, embeddings, chunker)
+knowledge_base/ - Knowledge base documents
+docs/ - Documentation</pre>
+<h2>5. API Endpoints</h2><table><tr><th>Method</th><th>Endpoint</th><th>Description</th></tr><tr><td><span class="badge badge-get">GET</span></td><td><code>/</code></td><td>Main chat interface</td></tr><tr><td><span class="badge badge-post">POST</span></td><td><code>/chat</code></td><td>Chat with AI (streaming)</td></tr><tr><td><span class="badge badge-get">GET</span></td><td><code>/models</code></td><td>List available models</td></tr><tr><td><span class="badge badge-post">POST</span></td><td><code>/transcribe</code></td><td>Transcribe audio</td></tr><tr><td><span class="badge badge-get">GET</span></td><td><code>/api/knowledge/search</code></td><td>Search knowledge base</td></tr><tr><td><span class="badge badge-get">GET</span></td><td><code>/api/knowledge/categories</code></td><td>List categories</td></tr><tr><td><span class="badge badge-get">GET</span></td><td><code>/api/knowledge/stats</code></td><td>KB statistics</td></tr><tr><td><span class="badge badge-post">POST</span></td><td><code>/api/knowledge/reload</code></td><td>Reload/reindex KB</td></tr><tr><td><span class="badge badge-get">GET</span></td><td><code>/api/images/search</code></td><td>Search images</td></tr><tr><td><span class="badge badge-post">POST</span></td><td><code>/tts</code></td><td>Text to speech (MP3)</td></tr><tr><td><span class="badge badge-post">POST</span></td><td><code>/tts-optimized</code></td><td>Optimized TTS</td></tr><tr><td><span class="badge badge-get">GET</span></td><td><code>/vts/status</code></td><td>VTS connection status</td></tr><tr><td><span class="badge badge-post">POST</span></td><td><code>/vts/connect</code></td><td>Connect to VTS</td></tr><tr><td><span class="badge badge-post">POST</span></td><td><code>/vts/disconnect</code></td><td>Disconnect from VTS</td></tr><tr><td><span class="badge badge-post">POST</span></td><td><code>/vts/set_mouth</code></td><td>Set mouth value</td></tr><tr><td><span class="badge badge-post">POST</span></td><td><code>/vts/play_lip_sync</code></td><td>Play lip sync</td></tr><tr><td><span class="badge badge-post">POST</span></td><td><code>/vts/trigger_gesture</code></td><td>Trigger gesture</td></tr><tr><td><span class="badge badge-get">GET</span></td><td><code>/docs</code></td><td>API docs (password)</td></tr></table>
+<h3>/chat Request</h3><pre>POST /chat
+{&quot;messages&quot;: [{&quot;role&quot;:&quot;user&quot;,&quot;content&quot;:&quot;Apa itu UiTM?&quot;}],&quot;stream&quot;:true}</pre>
+<h3>/transcribe Request</h3><pre>POST /transcribe
+{&quot;audio&quot;:&quot;&lt;base64&gt;&quot;,&quot;format&quot;:&quot;webm&quot;}
+Response: {&quot;success&quot;:true,&quot;text&quot;:&quot;...&quot;}</pre>
+<h3>/api/knowledge/search</h3><pre>GET /api/knowledge/search?q=kemasukan&amp;top_k=5</pre>
+<h3>/tts Request</h3><pre>POST /tts
+{&quot;text&quot;:&quot;Selamat datang ke UiTM&quot;}
+Response: Audio (MP3)</pre>
+<h2>6. RAG System</h2><p>Two modes: <strong>Lightweight</strong> (TF-IDF, fast, low memory) and <strong>Advanced</strong> (embeddings + ChromaDB, better accuracy, 8GB+ RAM). Set <code>RAG_USE_ADVANCED=true</code> for advanced mode.</p>
+<p>Documents go in <code>knowledge_base/</code> subfolders. Supports .md, .json, .pdf. Auto-indexes on startup or reload via <code>/api/knowledge/reload</code>.</p>
+<h2>7. VTube Studio Integration</h2><ol><li>Install VTube Studio from Steam</li><li>Enable API in Settings (port 8001)</li><li>Set <code>VTS_ENABLED=true</code> in .env</li><li>Restart app, toggle connection in settings</li></ol>
+<table><tr><th>Gesture</th><th>Hotkey ID</th><th>Trigger</th></tr><tr><td>Wave Hello</td><td><code>wave_hello</code></td><td>User greets</td></tr><tr><td>Nod Agree</td><td><code>nod_head_agree</code></td><td>User confirms</td></tr><tr><td>Explain</td><td><code>explain_arm_gesture</code></td><td>AI explaining</td></tr><tr><td>Idle</td><td><code>idle_waiting</code></td><td>Random idle</td></tr></table><div class="warn-box">Create hotkeys with these exact IDs in VTube Studio.</div>
+<h2>8. TTS</h2><p>Minimax TTS API with Malay voice (<code>Malay_male_1_v1</code>). Output: MP3. Max: 10,000 chars. Optimized module streams audio in chunks.</p>
+<h2>9. Troubleshooting</h2><table><tr><th>Problem</th><th>Solution</th></tr><tr><td>API key not configured</td><td>Check .env file</td></tr><tr><td>Module not found</td><td>Activate venv + pip install</td></tr><tr><td>VTS not connecting</td><td>Enable API in VTS, port 8001</td></tr><tr><td>No RAG results</td><td>Check docs in knowledge_base/, reload</td></tr></table>
+<p class="footer">Pembantu AI UiTM V2 &bull; Ts. Zaaba Bin Ahmad &bull; UiTM<br>Generated by Ruby &bull; March 30, 2026</p></body></html>
