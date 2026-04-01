@@ -1267,6 +1267,13 @@ async function playTTS(text) {
                 state.lastUserMessage = null;
             }
 
+            // Trigger wave_hello for greeting messages
+            if (cleanText.includes('Assalamualaikum') && state.vts.enabled && state.vts.connected) {
+                triggerVTSGesture('wave_hello', true).catch(err => {
+                    console.error('[Greeting] wave_hello error:', err);
+                });
+            }
+
             audio.play().catch(err => {
                 console.error('Audio playback failed:', err);
                 state.isSpeaking = false;
@@ -1301,6 +1308,13 @@ async function playTTS(text) {
                 detectAndTriggerGesture(state.lastUserMessage, 'user');
                 // Clear the stored message to prevent duplicate triggers
                 state.lastUserMessage = null;
+            }
+
+            // Trigger wave_hello for greeting messages
+            if (cleanText.includes('Assalamualaikum') && state.vts.enabled && state.vts.connected) {
+                triggerVTSGesture('wave_hello', true).catch(err => {
+                    console.error('[Greeting] wave_hello error:', err);
+                });
             }
 
             audio.play().catch(err => {
