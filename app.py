@@ -1186,6 +1186,64 @@ def play_startup_audio():
         return jsonify({"error": str(e)}), 500
 
 
+@app.route("/tts/play-salam-audio", methods=["POST"])
+def play_salam_audio():
+    """Play pre-recorded salam greeting audio with lip-sync data."""
+    data = request.get_json(silent=True) or {}
+    include_lip_sync = data.get("include_lip_sync", False) and VTS_ENABLED
+
+    # Path to salam audio file
+    salam_audio_path = os.path.join(
+        os.path.dirname(os.path.abspath(__file__)),
+        "static", "assets", "voice_message", "message_salam.wav",
+    )
+
+    if not os.path.exists(salam_audio_path):
+        return jsonify({"error": "Salam audio file not found"}), 404
+
+    try:
+        import time
+
+        start_time = time.time()
+
+        with open(salam_audio_path, "rb") as f:
+            audio_bytes = f.read()
+
+        # Generate lip-sync data if requested
+        all_lip_sync = []
+        if include_lip_sync and vts_audio_converter and vts_audio_converter.is_available:
+            try:
+                parallel_analyzer = get_parallel_analyzer()
+
+                async def analyze_audio():
+                    return await parallel_analyzer.analyze_wav_bytes_parallel(audio_bytes)
+
+                lip_sync = asyncio.run(analyze_audio())
+                all_lip_sync = lip_sync if lip_sync else []
+            except Exception as e:
+                print(f"[Salam Audio] Lip-sync error: {e}")
+
+        duration = 0.0
+        if vts_audio_converter:
+            duration = vts_audio_converter.get_audio_duration(audio_bytes, "wav") or 0.0
+
+        elapsed = time.time() - start_time
+        print(f"[Salam Audio] Loaded in {elapsed:.2f}s, duration={duration:.2f}s")
+
+        audio_base64 = base64.b64encode(audio_bytes).decode("utf-8")
+
+        return jsonify({
+            "audio": audio_base64,
+            "audio_format": "wav",
+            "lip_sync": all_lip_sync,
+            "duration": duration,
+        })
+
+    except Exception as e:
+        print(f"[Salam Audio] Error: {e}")
+        return jsonify({"error": str(e)}), 500
+
+
 @app.route("/vts/status", methods=["GET"])
 def vts_status():
     """

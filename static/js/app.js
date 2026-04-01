@@ -2866,14 +2866,70 @@ async function handleDetectionManualGreet() {
     // Show message in chat immediately
     addMessage('assistant', greetingText);
 
-    // Play TTS
-    playTTS(greetingText);
+    // Play pre-recorded salam audio + wave_hello
+    playSalamAudio();
 
     // Also notify backend (resets cooldown, etc.)
     try {
         await fetch('/detection/greet', { method: 'POST' });
     } catch (err) {
         console.error('[Detection] Manual greet error:', err);
+    }
+}
+
+async function playSalamAudio() {
+    try {
+        const includeLipSync = state.vts.enabled && state.vts.connected;
+        const response = await fetch('/tts/play-salam-audio', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ include_lip_sync: includeLipSync })
+        });
+
+        if (!response.ok) return;
+        const data = await response.json();
+
+        // Decode and play audio
+        const audioBytes = atob(data.audio);
+        const audioArray = new Uint8Array(audioBytes.length);
+        for (let i = 0; i < audioBytes.length; i++) {
+            audioArray[i] = audioBytes.charCodeAt(i);
+        }
+        const audioBlob = new Blob([audioArray], { type: 'audio/wav' });
+        const audioUrl = URL.createObjectURL(audioBlob);
+        const audio = new Audio(audioUrl);
+
+        // Lip sync
+        if (data.lip_sync && data.lip_sync.length > 0) {
+            state.vts.lipSyncData = data.lip_sync;
+            state.vts.currentAudio = audio;
+            playLipSync(data.lip_sync, audio, '');
+        }
+
+        // Wave hello
+        if (state.vts.enabled && state.vts.connected) {
+            triggerVTSGesture('wave_hello', true).catch(() => {});
+        }
+
+        // Block input while speaking
+        state.isSpeaking = true;
+        updateInputState();
+
+        audio.play().catch(err => {
+            console.error('[Salam] Audio playback failed:', err);
+            state.isSpeaking = false;
+            updateInputState();
+        });
+
+        audio.onended = () => {
+            URL.revokeObjectURL(audioUrl);
+            state.vts.lipSyncData = null;
+            state.vts.currentAudio = null;
+            state.isSpeaking = false;
+            updateInputState();
+        };
+    } catch (err) {
+        console.error('[Salam] Error:', err);
     }
 }
 
@@ -2952,7 +3008,7 @@ function startDetectionStatsPolling() {
                 if (data.stats && data.stats.pending_greeting) {
                     const greetingText = data.stats.pending_greeting;
                     addMessage('assistant', greetingText);
-                    playTTS(greetingText);
+                    playSalamAudio();
                 }
             } else {
                 state.detection.running = false;
