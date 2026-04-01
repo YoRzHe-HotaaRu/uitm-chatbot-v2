@@ -1,0 +1,145 @@
+<!DOCTYPE html>
+<html><head><meta charset="UTF-8"><style>
+@page{margin:40px 50px;size:A4}body{font-family:Arial,sans-serif;color:#222;line-height:1.6;font-size:12px}
+h1{text-align:center;font-size:22px;color:#1d3557;border-bottom:3px solid #e63946;padding-bottom:10px}
+h2{font-size:16px;color:#1d3557;border-bottom:2px solid #457b9d;padding-bottom:4px;margin-top:25px}
+h3{font-size:13px;color:#457b9d;margin-top:14px}
+code{background:#f1f3f5;padding:2px 6px;border-radius:3px;font-family:monospace;font-size:11px}
+pre{background:#1d3557;color:#edf2f4;padding:12px 16px;border-radius:4px;font-family:monospace;font-size:11px;white-space:pre-wrap}
+table{width:100%;border-collapse:collapse;margin:10px 0 15px;font-size:11.5px}
+th{background:#1d3557;color:#fff;padding:8px 10px;text-align:left}
+td{padding:7px 10px;border-bottom:1px solid #ddd}
+tr:nth-child(even){background:#f8f9fa}
+.info-box{background:#f0f4f8;border-left:4px solid #457b9d;padding:10px 14px;margin:10px 0}
+.warn-box{background:#fff3cd;border-left:4px solid #f4a261;padding:10px 14px;margin:10px 0}
+.danger-box{background:#fdedec;border-left:4px solid #e74c3c;padding:10px 14px;margin:10px 0}
+.footer{text-align:center;color:#999;font-size:10px;margin-top:30px;border-top:1px solid #ddd;padding-top:8px}
+.subtitle{text-align:center;color:#666;font-size:13px;margin-bottom:20px}
+.toc{background:#f8f9fa;padding:12px 18px;border:1px solid #ddd;margin-bottom:20px}
+.toc li{margin:3px 0}ul,ol{padding-left:20px}li{margin:3px 0}
+.step{margin:6px 0;font-size:12px}
+.arrow{color:#e63946;font-weight:bold}
+</style></head><body>
+
+<h1>VTube Studio Setup Guide</h1>
+<p class="subtitle">Complete Installation &amp; Configuration for Pembantu AI UiTM V2<br>March 30, 2026</p>
+
+<div class="toc"><strong>Contents:</strong><ol>
+<li>What is VTube Studio?</li><li>Download &amp; Install</li><li>First Launch Setup</li>
+<li>Enable API (Port 8001)</li><li>Connect to Pembantu AI</li><li>Setting Up Hotkeys</li>
+<li>Mouth Parameter Binding</li><li>Load a Live2D Model</li><li>Troubleshooting</li><li>Links &amp; Resources</li>
+</ol></div>
+
+<h2>1. What is VTube Studio?</h2>
+<p>VTube Studio (VTS) is a free app that uses your webcam or smartphone to track your face and animate Live2D Cubism models. It is the industry standard for VTubing.</p>
+<ul><li>Supports Live2D Cubism models (NOT 3D/VRM)</li><li>Free on Steam with optional PRO upgrade</li><li>WebSocket API for plugins and external control</li><li>Works on Windows, macOS, iOS, Android</li></ul>
+
+<h2>2. Download &amp; Install</h2>
+<h3>Desktop (Recommended)</h3>
+<p class="step"><strong>Step 1:</strong> Open Steam on your computer</p>
+<p class="step"><strong>Step 2:</strong> Search for "VTube Studio" in the Steam Store</p>
+<p class="step"><strong>Step 3:</strong> Click "Add to Library" (FREE)</p>
+<p class="step"><strong>Step 4:</strong> Click "Install"</p>
+<p class="step"><strong>Step 5:</strong> Wait for download (~200MB)</p>
+<p>Direct: <a href="https://store.steampowered.com/app/1325860/VTube_Studio/">store.steampowered.com/app/1325860</a></p>
+
+<h3>Smartphone (Optional)</h3>
+<table><tr><th>Platform</th><th>Link</th></tr>
+<tr><td>iOS</td><td>https://apps.apple.com/us/app/vtube-studio/id1511435444</td></tr>
+<tr><td>Android</td><td>https://play.google.com/store/apps/details?id=com.denchi.vtubestudio</td></tr></table>
+<div class="info-box">If using a webcam on PC, you do NOT need the smartphone app.</div>
+
+<h2>3. First Launch</h2>
+<p class="step"><strong>Step 1:</strong> Launch VTube Studio from Steam</p>
+<p class="step"><strong>Step 2:</strong> Dismiss welcome popups</p>
+<p class="step"><strong>Step 3:</strong> Grant camera permission</p>
+<p class="step"><strong>Step 4:</strong> Default model (Akari) loads automatically</p>
+<p class="step"><strong>Step 5:</strong> Face tracking starts immediately!</p>
+
+<h2>4. Enable API (Port 8001)</h2>
+<p class="step"><strong>Step 1:</strong> Click the gear icon (Settings) in main menu</p>
+<p class="step"><strong>Step 2:</strong> Go to "General" tab</p>
+<p class="step"><strong>Step 3:</strong> Find "Plugin API" section</p>
+<p class="step"><strong>Step 4:</strong> Toggle "Start API" to ON</p>
+<p class="step"><strong>Step 5:</strong> Confirm port is 8001 (default)</p>
+<div class="warn-box">When Pembantu AI connects, VTube Studio will ask for permission. Click "Allow".</div>
+
+<h2>5. Connect to Pembantu AI</h2>
+<p>Edit your .env file:</p>
+<pre>VTS_ENABLED=true
+VTS_HOST=localhost
+VTS_PORT=8001
+VTS_AUTO_RECONNECT=true
+VTS_RECONNECT_INTERVAL=5.0</pre>
+<p class="step"><strong>Step 1:</strong> Run <code>python app.py</code></p>
+<p class="step"><strong>Step 2:</strong> Open Pembantu AI in browser</p>
+<p class="step"><strong>Step 3:</strong> Click settings icon</p>
+<p class="step"><strong>Step 4:</strong> Toggle "Sambung ke VTube Studio" ON</p>
+<p class="step"><strong>Step 5:</strong> Click "Allow" in VTS dialog</p>
+<p class="step"><strong>Step 6:</strong> Status shows green "Disambung"</p>
+
+<h2>6. Setting Up Hotkeys</h2>
+<p class="step"><strong>Step 1:</strong> In VTS, go to Settings <span class="arrow">-&gt;</span> Hotkeys</p>
+<p class="step"><strong>Step 2:</strong> Click "Add Hotkey"</p>
+<p class="step"><strong>Step 3:</strong> Create hotkeys with EXACT IDs:</p>
+<table><tr><th>Hotkey ID</th><th>Description</th><th>Assign Animation</th></tr>
+<tr><td><code>wave_hello</code></td><td>Wave greeting</td><td>Any wave animation</td></tr>
+<tr><td><code>nod_head_agree</code></td><td>Nod agreement</td><td>Any nod animation</td></tr>
+<tr><td><code>explain_arm_gesture</code></td><td>Explaining</td><td>Any explain animation</td></tr>
+<tr><td><code>explain_hand_left</code></td><td>Point left</td><td>Any point animation</td></tr>
+<tr><td><code>explain_hand_right</code></td><td>Point right</td><td>Any point animation</td></tr>
+<tr><td><code>idle_waiting</code></td><td>Idle</td><td>Any idle animation</td></tr></table>
+<div class="danger-box">IDs must match EXACTLY. Do not change spelling or casing.</div>
+
+<h2>7. Mouth Parameter Binding</h2>
+<p class="step"><strong>Step 1:</strong> In VTS, go to Settings <span class="arrow">-&gt;</span> Parameters</p>
+<p class="step"><strong>Step 2:</strong> Add parameter binding:</p>
+<ul><li><strong>Input:</strong> <code>MouthOpen</code></li>
+<li><strong>Output:</strong> <code>ParamMouthOpenY</code></li></ul>
+<p class="step"><strong>Step 3:</strong> Map: IN 0-1, OUT 0-1</p>
+<p class="step"><strong>Step 4:</strong> Enable Smoothing</p>
+<div class="warn-box">VTS only allows injection to tracking (input) parameters, not Live2D (output) directly. Binding is required.</div>
+
+<h2>8. Load a Live2D Model</h2>
+<p class="step"><strong>Step 1:</strong> Click "Change VTS Model" in main menu</p>
+<p class="step"><strong>Step 2:</strong> Click "Import your own Model"</p>
+<p class="step"><strong>Step 3:</strong> Navigate to your model folder (.moc3 file)</p>
+<p class="step"><strong>Step 4:</strong> Select folder and click OK</p>
+<div class="info-box">VTS comes with built-in models. Free models available on Booth.pm.</div>
+
+<h2>9. Troubleshooting</h2>
+<table><tr><th>Problem</th><th>Solution</th></tr>
+<tr><td>"VTS connector not initialized"</td><td>Set VTS_ENABLED=true, restart</td></tr>
+<tr><td>"Connection refused"</td><td>VTS running, API on port 8001</td></tr>
+<tr><td>Mouth not moving</td><td>Bind MouthOpen to ParamMouthOpenY</td></tr>
+<tr><td>"Parameter not found"</td><td>Create binding in VTS Parameters</td></tr>
+<tr><td>Tracking choppy</td><td>More smoothing, better lighting</td></tr>
+<tr><td>Hotkeys not working</td><td>Check IDs match exactly (case-sensitive)</td></tr>
+<tr><td>Camera not detected</td><td>Check Windows camera permissions</td></tr></table>
+
+<h2>10. Links &amp; Resources</h2>
+<h3>Official</h3>
+<table><tr><th>Resource</th><th>URL</th></tr>
+<tr><td>Steam Page</td><td>store.steampowered.com/app/1325860</td></tr>
+<tr><td>Website</td><td>denchisoft.com</td></tr>
+<tr><td>Documentation</td><td>github.com/DenchiSoft/VTubeStudio/wiki</td></tr>
+<tr><td>API GitHub</td><td>github.com/DenchiSoft/VTubeStudio</td></tr>
+<tr><td>Discord</td><td>discord.gg/vtubestudio</td></tr></table>
+
+<h3>Developer Libraries</h3>
+<table><tr><th>Library</th><th>Language</th><th>URL</th></tr>
+<tr><td>VTubeStudioJS</td><td>JavaScript</td><td>github.com/Hawkbat/VTubeStudioJS</td></tr>
+<tr><td>VTS-Sharp</td><td>C#</td><td>github.com/FomTarro/VTS-Sharp</td></tr>
+<tr><td>vtubestudio</td><td>Rust</td><td>docs.rs/vtubestudio</td></tr>
+<tr><td>vts-d</td><td>D</td><td>github.com/Inochi2D/vts-d</td></tr></table>
+
+<h3>Wiki Pages</h3>
+<table><tr><th>Page</th><th>Description</th></tr>
+<tr><td>Getting Started</td><td>github.com/DenchiSoft/VTubeStudio/wiki/Getting-Started</td></tr>
+<tr><td>Settings</td><td>github.com/DenchiSoft/VTubeStudio/wiki/VTube-Studio-Settings</td></tr>
+<tr><td>Plugins</td><td>github.com/DenchiSoft/VTubeStudio/wiki/Plugins</td></tr>
+<tr><td>Lipsync</td><td>github.com/DenchiSoft/VTubeStudio/wiki/Lipsync</td></tr>
+<tr><td>Hotkeys</td><td>github.com/DenchiSoft/VTubeStudio/wiki/Hotkeys</td></tr>
+<tr><td>FAQ</td><td>github.com/DenchiSoft/VTubeStudio/wiki/FAQ</td></tr></table>
+
+<p class="footer">VTube Studio Setup Guide | Pembantu AI UiTM V2<br>Ts. Zaaba Bin Ahmad | UiTM | Ruby | March 30, 2026</p></body></html>
