@@ -62,7 +62,7 @@ class SimpleRetriever:
                 })
         
         self._indexed = True
-        print(f"  ✓ Indexed {len(self.chunk_index)} chunks")
+        print(f"  [OK] Indexed {len(self.chunk_index)} chunks")
     
     def _split_document(self, document, max_chunk_size: int = 1000):
         """Split document into chunks"""

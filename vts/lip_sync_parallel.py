@@ -8,7 +8,6 @@ import io
 import struct
 from typing import List, Tuple, Optional, Callable
 from concurrent.futures import ThreadPoolExecutor
-import numpy as np
 
 
 class ParallelLipSyncAnalyzer:

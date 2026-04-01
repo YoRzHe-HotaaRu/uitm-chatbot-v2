@@ -44,6 +44,67 @@ except ImportError:
     TTS_OPTIMIZED_AVAILABLE = False
     print("[TTS] Optimized TTS module not available, using fallback")
 
+# Import Human Detection (lazy - only loads torch/ultralytics when needed)
+DETECTION_AVAILABLE = True
+_detection_initialized = False
+
+
+def _ensure_detection():
+    """Lazy-load detection module on first use."""
+    global _detection_initialized, detector, zone_detector, visitor_tracker
+    global get_detector, get_zone_detector, get_tracker, ZoneConfig
+    global DETECTION_AVAILABLE
+
+    if _detection_initialized:
+        return
+
+    _detection_initialized = True
+
+    try:
+        from detection import (
+            get_detector as _get_detector,
+            get_zone_detector as _get_zone_detector,
+            get_tracker as _get_tracker,
+            ZoneConfig as _ZoneConfig,
+        )
+
+        get_detector = _get_detector
+        get_zone_detector = _get_zone_detector
+        get_tracker = _get_tracker
+        ZoneConfig = _ZoneConfig
+
+        detector = get_detector(
+            model_path=DETECTION_MODEL,
+            camera_index=DETECTION_CAMERA_INDEX,
+            confidence_threshold=DETECTION_CONFIDENCE,
+        )
+        detector.set_callbacks(
+            on_person_enter=on_person_detected,
+            on_person_exit=on_person_exited,
+        )
+
+        zone_detector = get_zone_detector()
+        visitor_tracker = get_tracker(
+            greeting_cooldown=DETECTION_GREETING_COOLDOWN,
+            min_detection_duration=DETECTION_MIN_DURATION,
+        )
+        visitor_tracker.set_greeting_callback(on_greeting_triggered)
+
+        print("[Detection] Module loaded and initialized")
+    except Exception as e:
+        print(f"[Detection] Could not load: {e}")
+        DETECTION_AVAILABLE = False
+
+
+# Placeholders — replaced by _ensure_detection()
+detector = None
+zone_detector = None
+visitor_tracker = None
+get_detector = None
+get_zone_detector = None
+get_tracker = None
+ZoneConfig = None
+
 # Load environment variables
 load_dotenv()
 
@@ -107,10 +168,10 @@ if ENABLE_RAG:
         except Exception as e:
             print(f"Note: Image handler not initialized: {e}")
 
-        print("\n✓ RAG System ready!")
+        print("\n[OK] RAG System ready!")
         print("=" * 60 + "\n")
     except Exception as e:
-        print(f"\n⚠ Warning: Could not initialize RAG system: {e}")
+        print(f"\n[WARN] Could not initialize RAG system: {e}")
         print("Continuing without RAG functionality...\n")
         import traceback
 
@@ -185,17 +246,83 @@ if VTS_ENABLED:
         vts_gesture_controller = get_gesture_controller(vts_connector)
         vts_gesture_animator = get_gesture_animator(vts_connector)
 
-        print("\n✓ VTS Integration ready! (Will connect on first use)")
-        print("✓ Idle animations and gesture control ready!")
-        print("✓ Gesture animator for hotkey animations ready!")
+        print("\n[OK] VTS Integration ready! (Will connect on first use)")
+        print("[OK] Idle animations and gesture control ready!")
+        print("[OK] Gesture animator for hotkey animations ready!")
         print("=" * 60 + "\n")
     except Exception as e:
-        print(f"\n⚠ Warning: Could not initialize VTS system: {e}")
+        print(f"\n[WARN] Could not initialize VTS system: {e}")
         print("Continuing without VTS functionality...\n")
         import traceback
 
         traceback.print_exc()
         vts_connector = None
+
+# Human Detection Configuration
+import time as time_module
+
+DETECTION_ENABLED = os.getenv("DETECTION_ENABLED", "false").lower() == "true"
+DETECTION_CAMERA_INDEX = int(os.getenv("DETECTION_CAMERA_INDEX", "0"))
+DETECTION_CONFIDENCE = float(os.getenv("DETECTION_CONFIDENCE", "0.5"))
+DETECTION_MODEL = os.getenv("DETECTION_MODEL", "yolov8n.pt")
+DETECTION_GREETING_COOLDOWN = float(os.getenv("DETECTION_GREETING_COOLDOWN", "15.0"))
+DETECTION_MIN_DURATION = float(os.getenv("DETECTION_MIN_DURATION", "1.5"))
+DETECTION_AUTO_GREET = os.getenv("DETECTION_AUTO_GREET", "true").lower() == "true"
+DETECTION_ZONE_ENABLED = os.getenv("DETECTION_ZONE_ENABLED", "true").lower() == "true"
+
+# Initialize Human Detection
+detector = None
+zone_detector = None
+visitor_tracker = None
+
+
+def on_person_detected(count, detections):
+    """Callback when person enters the frame. Notifies via SocketIO."""
+    print(f"[Detection] Person detected! Count: {count}")
+    socketio.emit(
+        "detection_person_enter",
+        {
+            "count": count,
+            "timestamp": time_module.time(),
+            "detections": [
+                {
+                    "x1": d["x1"],
+                    "y1": d["y1"],
+                    "x2": d["x2"],
+                    "y2": d["y2"],
+                    "confidence": d["confidence"],
+                }
+                for d in detections
+            ],
+        },
+    )
+    if visitor_tracker:
+        visitor_tracker.person_entered(count, detections)
+
+
+def on_person_exited():
+    """Callback when all persons leave the frame."""
+    print("[Detection] Person exited")
+    socketio.emit("detection_person_exit", {"timestamp": time_module.time()})
+    if visitor_tracker:
+        visitor_tracker.person_exited()
+
+
+def on_greeting_triggered(visitor_count, session):
+    """Callback when greeting should be triggered. Sends greeting message + TTS."""
+    print(f"[Detection] Greeting triggered for {visitor_count} visitor(s)")
+
+    greeting_text = "Assalamualaikum dan selamat datang ke UiTM Kampus Tapah! Bagaimana saya boleh membantu anda hari ini?"
+
+    socketio.emit(
+        "detection_greeting_trigger",
+        {
+            "visitor_count": visitor_count,
+            "session_duration": session.duration if session else 0,
+            "message": greeting_text,
+        },
+    )
+
 
 # Base system prompt for UiTM Receptionist
 BASE_SYSTEM_PROMPT = """Anda adalah Pembantu AI rasmi Universiti Teknologi MARA (UiTM), Malaysia.
@@ -1455,6 +1582,204 @@ def vts_gesture_status():
 
 
 # ============================================
+# Human Detection System
+# ============================================
+
+
+@app.route("/detection/start", methods=["POST"])
+def detection_start():
+    """Start the human detection system."""
+    if not DETECTION_AVAILABLE:
+        return jsonify({"error": "Detection module not available"}), 503
+
+    _ensure_detection()
+
+    if not detector:
+        return jsonify({"error": "Detector not initialized"}), 500
+
+    if detector.is_running:
+        return jsonify({"status": "already_running", "message": "Detection is already active"})
+
+    # Allow camera_index override from request
+    data = request.get_json(silent=True) or {}
+    if "camera_index" in data:
+        detector.camera_index = int(data["camera_index"])
+
+    success = detector.start()
+    if success:
+        # Set up default zone if enabled
+        if DETECTION_ZONE_ENABLED and zone_detector:
+            zone_detector.set_default_line(detector.frame_width, detector.frame_height)
+
+        return jsonify(
+            {
+                "status": "started",
+                "message": "Human detection started",
+                "camera_index": detector.camera_index,
+                "confidence": DETECTION_CONFIDENCE,
+            }
+        )
+    else:
+        return jsonify({"error": "Failed to start camera. Check if webcam is connected and not in use by another app."}), 500
+
+
+@app.route("/detection/cameras", methods=["GET"])
+def detection_cameras():
+    """List available cameras by probing indices 0-9."""
+    import cv2
+
+    _ensure_detection()
+
+    if not detector:
+        return jsonify({"error": "Detector not initialized"}), 500
+
+    available = []
+    for i in range(10):
+        cap = detector._open_camera(i)
+        if cap is not None:
+            w = int(cap.get(cv2.CAP_PROP_FRAME_WIDTH))
+            h = int(cap.get(cv2.CAP_PROP_FRAME_HEIGHT))
+            available.append({"index": i, "name": f"Camera {i}", "resolution": f"{w}x{h}"})
+            cap.release()
+
+    return jsonify({"cameras": available})
+
+
+@app.route("/detection/stop", methods=["POST"])
+def detection_stop():
+    """Stop the human detection system."""
+    _ensure_detection()
+
+    if not detector:
+        return jsonify({"error": "Detector not initialized"}), 500
+
+    detector.stop()
+    if visitor_tracker:
+        visitor_tracker.reset()
+
+    return jsonify({"status": "stopped", "message": "Human detection stopped"})
+
+
+@app.route("/detection/status", methods=["GET"])
+def detection_status():
+    """Get current detection system status."""
+    if not DETECTION_AVAILABLE:
+        return jsonify({"available": False, "enabled": False})
+
+    _ensure_detection()
+
+    stats = visitor_tracker.get_stats() if visitor_tracker else {}
+
+    return jsonify(
+        {
+            "available": True,
+            "enabled": DETECTION_ENABLED,
+            "running": detector.is_running if detector else False,
+            "person_count": detector.person_count if detector else 0,
+            "fps": detector.fps if detector else 0,
+            "auto_greet": DETECTION_AUTO_GREET,
+            "zone_enabled": DETECTION_ZONE_ENABLED,
+            "zones": [z.to_dict() for z in zone_detector.zones] if zone_detector else [],
+            "stats": stats,
+        }
+    )
+
+
+@app.route("/detection/stream")
+def detection_stream():
+    """MJPEG video stream with detection annotations."""
+    if not detector or not detector.is_running:
+        return jsonify({"error": "Detection not running"}), 400
+
+    return Response(
+        detector.generate_mjpeg_frames(),
+        mimetype="multipart/x-mixed-replace; boundary=frame",
+    )
+
+
+@app.route("/detection/frame")
+def detection_frame():
+    """Get a single annotated frame as JPEG."""
+    if not detector or not detector.is_running:
+        return jsonify({"error": "Detection not running"}), 400
+
+    import cv2
+
+    frame = detector.get_latest_annotated_frame()
+    if frame is None:
+        return jsonify({"error": "No frame available"}), 503
+
+    ret, buffer = cv2.imencode(".jpg", frame, [cv2.IMWRITE_JPEG_QUALITY, 70])
+    if not ret:
+        return jsonify({"error": "Failed to encode frame"}), 500
+
+    return Response(
+        buffer.tobytes(),
+        mimetype="image/jpeg",
+        headers={"Cache-Control": "no-cache"},
+    )
+
+
+@app.route("/detection/configure", methods=["POST"])
+def detection_configure():
+    """Configure detection parameters."""
+    _ensure_detection()
+
+    if not detector:
+        return jsonify({"error": "Detector not initialized"}), 500
+
+    data = request.get_json() or {}
+
+    if "confidence" in data:
+        detector.confidence_threshold = float(data["confidence"])
+
+    if "camera_index" in data and not detector.is_running:
+        detector.camera_index = int(data["camera_index"])
+
+    if "zone_points" in data and zone_detector:
+        zone_data = data["zone_points"]
+        zone = ZoneConfig.from_dict(zone_data)
+        zone_detector.clear_zones()
+        zone_detector.add_zone(zone)
+
+    if "greeting_cooldown" in data and visitor_tracker:
+        visitor_tracker.greeting_cooldown = float(data["greeting_cooldown"])
+
+    return jsonify(
+        {
+            "status": "configured",
+            "confidence": detector.confidence_threshold,
+            "zones": [z.to_dict() for z in zone_detector.zones] if zone_detector else [],
+        }
+    )
+
+
+@app.route("/detection/reset", methods=["POST"])
+def detection_reset():
+    """Reset visitor tracking counters."""
+    _ensure_detection()
+
+    if visitor_tracker:
+        visitor_tracker.reset()
+    return jsonify({"status": "reset", "message": "Visitor tracking reset"})
+
+
+@app.route("/detection/greet", methods=["POST"])
+def detection_manual_greet():
+    """Manually trigger a greeting (for testing or button press)."""
+    if not DETECTION_AVAILABLE:
+        return jsonify({"error": "Detection not available"}), 503
+
+    _ensure_detection()
+
+    if visitor_tracker:
+        visitor_tracker.reset_greeting_cooldown()
+
+    on_greeting_triggered(1, None)
+    return jsonify({"status": "greeted", "message": "Greeting triggered manually"})
+
+
+# ============================================
 # API Documentation (Swagger UI)
 # ============================================
 
@@ -1729,4 +2054,10 @@ def handle_master_recording_state(data):
 
 
 if __name__ == "__main__":
-    socketio.run(app, debug=True, host="0.0.0.0", port=5000)
+    socketio.run(
+        app,
+        debug=True,
+        host="0.0.0.0",
+        port=5000,
+        allow_unsafe_werkzeug=True,
+    )

@@ -194,7 +194,7 @@ class VTSConnector:
             
         except ConnectionRefusedError:
             print("[VTS] Error: VTube Studio is not running or API is disabled")
-            print("[VTS] Please enable the API in VTube Studio: Settings → General Settings → Start API")
+            print("[VTS] Please enable the API in VTube Studio: Settings > General Settings > Start API")
             self._connecting = False
             self.websocket = None
             return False

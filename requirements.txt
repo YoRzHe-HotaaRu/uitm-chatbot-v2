@@ -12,6 +12,10 @@ eventlet>=0.33.0
 # Note: ffmpeg must be installed on the system for MP3 to WAV conversion
 # Download from: https://ffmpeg.org/download.html
 
+# Human Detection (YOLOv8)
+ultralytics>=8.0.0
+opencv-python>=4.8.0
+
 # RAG System - Optional Advanced Dependencies
 # Uncomment below ONLY if using Advanced Mode (requires 8GB+ RAM)
 # chromadb>=0.4.22

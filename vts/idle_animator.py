@@ -258,12 +258,12 @@ class IdleAnimator:
         self._target_x = 0.0
         self._target_y = 0.0
         self._target_z = 0.0
-        print("[IdleAnimator] Paused — gesture controller takes over")
+        print("[IdleAnimator] Paused - gesture controller takes over")
         
     def resume(self):
         """Resume idle animations (e.g., when done talking)."""
         self._paused = False
-        print("[IdleAnimator] Resumed — idle animations active")
+        print("[IdleAnimator] Resumed - idle animations active")
 
 
 # Global instance

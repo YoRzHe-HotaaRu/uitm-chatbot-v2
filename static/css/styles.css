@@ -2338,6 +2338,225 @@ textarea:focus-visible {
 }
 
 /* ========================================
+   HUMAN DETECTION
+   ======================================== */
+
+.detection-camera-select {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-bottom: 0.75rem;
+    padding-bottom: 0.75rem;
+    border-bottom: 1px solid var(--border-color);
+}
+
+.detection-camera-select .detection-label {
+    display: flex;
+    align-items: center;
+    gap: 0.35rem;
+    font-size: 0.85rem;
+    white-space: nowrap;
+}
+
+.detection-camera-select .detection-label svg {
+    width: 14px;
+    height: 14px;
+}
+
+.camera-select {
+    flex: 1;
+    padding: 0.35rem 0.5rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-primary);
+    font-size: 0.8rem;
+    cursor: pointer;
+}
+
+.camera-select:disabled {
+    opacity: 0.5;
+    cursor: not-allowed;
+}
+
+.camera-refresh-btn {
+    display: flex;
+    align-items: center;
+    justify-content: center;
+    width: 32px;
+    height: 32px;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    cursor: pointer;
+    transition: color 0.2s;
+}
+
+.camera-refresh-btn:hover {
+    color: var(--accent-secondary);
+}
+
+.camera-refresh-btn svg {
+    width: 14px;
+    height: 14px;
+}
+
+.detection-toggle-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-bottom: 0.75rem;
+}
+
+.detection-info {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.detection-label {
+    font-size: 0.9rem;
+    font-weight: 600;
+    color: var(--text-primary);
+}
+
+.detection-desc {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+}
+
+.detection-status {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    margin-top: 0.5rem;
+}
+
+.detection-stats {
+    display: flex;
+    flex-direction: column;
+    gap: 0.35rem;
+    padding: 0.5rem 0.75rem;
+    background-color: var(--bg-tertiary);
+    border: 1px solid var(--border-color);
+    margin-top: 0.5rem;
+}
+
+.detection-stats .stat-item {
+    display: flex;
+    justify-content: space-between;
+    font-size: 0.8rem;
+}
+
+.detection-stats .stat-label {
+    color: var(--text-secondary);
+}
+
+.detection-stats .stat-value {
+    font-weight: 600;
+    color: var(--accent-secondary);
+}
+
+.detection-preview {
+    margin-top: 0.75rem;
+    border: 1px solid var(--border-color);
+    overflow: hidden;
+    max-height: 240px;
+}
+
+.detection-preview img {
+    width: 100%;
+    height: auto;
+    display: block;
+    object-fit: contain;
+    max-height: 240px;
+}
+
+.detection-auto-greet-container {
+    display: flex;
+    align-items: center;
+    gap: 1rem;
+    margin-top: 0.75rem;
+    padding-top: 0.75rem;
+    border-top: 1px solid var(--border-color);
+}
+
+.detection-greet-btn {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    margin-top: 0.75rem;
+    padding: 0.5rem 1rem;
+    background-color: var(--accent-secondary);
+    color: #fff;
+    border: none;
+    cursor: pointer;
+    font-size: 0.85rem;
+    font-weight: 500;
+    transition: opacity 0.2s;
+}
+
+.detection-greet-btn:hover {
+    opacity: 0.85;
+}
+
+.detection-greet-btn svg {
+    width: 16px;
+    height: 16px;
+}
+
+/* Detection notifications in chat */
+.detection-notification {
+    margin: 0.5rem 0;
+    padding: 0.5rem 1rem;
+    border-left: 3px solid var(--accent-secondary);
+    background-color: var(--bg-tertiary);
+}
+
+.detection-notification .message-content {
+    display: flex;
+    flex-direction: column;
+    gap: 0.25rem;
+}
+
+.detection-notification .notification-badge {
+    display: flex;
+    align-items: center;
+    gap: 0.5rem;
+    font-weight: 600;
+    font-size: 0.85rem;
+    color: var(--accent-secondary);
+}
+
+.detection-notification .notification-badge svg {
+    width: 16px;
+    height: 16px;
+}
+
+.detection-notification .notification-text {
+    font-size: 0.8rem;
+    color: var(--text-secondary);
+}
+
+.detection-notification.greet {
+    border-left-color: var(--accent-tertiary);
+}
+
+.detection-notification.greet .notification-badge {
+    color: var(--accent-tertiary);
+}
+
+.detection-notification.error {
+    border-left-color: var(--accent-primary);
+}
+
+.detection-notification.error .notification-badge {
+    color: var(--accent-primary);
+}
+
+/* ========================================
    UTILITY CLASSES
    ======================================== */
 

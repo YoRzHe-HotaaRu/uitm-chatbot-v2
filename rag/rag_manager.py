@@ -88,7 +88,7 @@ class RAGManager:
             return
         
         self._stats['total_documents'] = len(documents)
-        print(f"   ✓ Loaded {len(documents)} documents")
+        print(f"   [OK] Loaded {len(documents)} documents")
         
         # Step 2: Build simple retriever (lightweight, always works)
         print("\n2. Building keyword index...")
@@ -122,7 +122,7 @@ class RAGManager:
     def _init_advanced_features(self, force_reindex: bool = False):
         """Initialize embedding-based features (memory intensive)"""
         if not ADVANCED_RAG_AVAILABLE:
-            print("   ⚠ Advanced dependencies not available")
+            print("   [WARN] Advanced dependencies not available")
             return
         
         try:
@@ -143,12 +143,12 @@ class RAGManager:
             existing_count = self.vector_store.count()
             
             if existing_count > 0 and not force_reindex:
-                print(f"   ✓ Vector store has {existing_count} chunks (skipped indexing)")
+                print(f"   [OK] Vector store has {existing_count} chunks (skipped indexing)")
             else:
                 # Chunk documents
                 print("   Chunking documents...")
                 chunks = self.chunker.chunk_documents(self.document_loader.documents)
-                print(f"   ✓ Created {len(chunks)} chunks")
+                print(f"   [OK] Created {len(chunks)} chunks")
                 
                 # Generate embeddings in batches
                 print("   Generating embeddings (this may take a while)...")
@@ -171,7 +171,7 @@ class RAGManager:
                 self.vector_store.add_chunks(chunks, all_embeddings)
                 self.embedding_engine.save_cache()
                 
-                print(f"   ✓ Indexed {len(chunks)} chunks")
+                print(f"   [OK] Indexed {len(chunks)} chunks")
             
             # Initialize hybrid retriever
             self.hybrid_retriever = HybridRetriever(
@@ -179,10 +179,10 @@ class RAGManager:
                 embedding_engine=self.embedding_engine,
                 document_loader=self.document_loader
             )
-            print("   ✓ Advanced retriever ready")
+            print("   [OK] Advanced retriever ready")
             
         except Exception as e:
-            print(f"   ⚠ Error initializing advanced features: {e}")
+            print(f"   [WARN] Error initializing advanced features: {e}")
             print("   Falling back to lightweight mode")
             self.use_advanced = False
     

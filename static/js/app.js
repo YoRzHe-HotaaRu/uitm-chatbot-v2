@@ -84,6 +84,18 @@ const state = {
             ttsStart: null,
             serverStart: null
         }
+    },
+
+    // Human Detection state
+    detection: {
+        available: false,
+        enabled: localStorage.getItem('uitm-detection-enabled') === 'true',
+        running: false,
+        autoGreet: true,
+        personCount: 0,
+        sessionCount: 0,
+        fps: 0,
+        streamUrl: null
     }
 };
 
@@ -152,7 +164,23 @@ const elements = {
     micButton: document.getElementById('micButton'),
     inputHint: document.getElementById('inputHint'),
     voiceVisualizer: document.getElementById('voiceVisualizer'),
-    sendingVoiceIndicator: document.getElementById('sendingVoiceIndicator')
+    sendingVoiceIndicator: document.getElementById('sendingVoiceIndicator'),
+
+    // Detection elements
+    detectionSettingsSection: document.getElementById('detectionSettingsSection'),
+    detectionToggle: document.getElementById('detectionToggle'),
+    detectionStatus: document.getElementById('detectionStatus'),
+    detectionStats: document.getElementById('detectionStats'),
+    detectionPreview: document.getElementById('detectionPreview'),
+    detectionStreamImg: document.getElementById('detectionStreamImg'),
+    detectionCurrentCount: document.getElementById('detectionCurrentCount'),
+    detectionSessionCount: document.getElementById('detectionSessionCount'),
+    detectionFps: document.getElementById('detectionFps'),
+    detectionAutoGreetContainer: document.getElementById('detectionAutoGreetContainer'),
+    detectionAutoGreetToggle: document.getElementById('detectionAutoGreetToggle'),
+    detectionGreetBtn: document.getElementById('detectionGreetBtn'),
+    detectionCameraSelect: document.getElementById('detectionCameraSelect'),
+    detectionCameraRefresh: document.getElementById('detectionCameraRefresh')
 };
 
 // ========================================
@@ -200,6 +228,9 @@ function initializeApp() {
     // Initialize remote control
     initializeRemoteControl();
 
+    // Initialize human detection
+    initializeDetection();
+
     // Schedule startup audio to play after user interaction + 5 seconds
     scheduleStartupAudio();
 }
@@ -224,6 +255,17 @@ function setupEventListeners() {
     // Performance monitor toggle
     if (elements.perfMonitorToggle) {
         elements.perfMonitorToggle.addEventListener('change', handlePerfMonitorToggle);
+    }
+
+    // Detection toggle
+    if (elements.detectionToggle) {
+        elements.detectionToggle.addEventListener('change', handleDetectionToggle);
+    }
+    if (elements.detectionAutoGreetToggle) {
+        elements.detectionAutoGreetToggle.addEventListener('change', handleDetectionAutoGreetToggle);
+    }
+    if (elements.detectionGreetBtn) {
+        elements.detectionGreetBtn.addEventListener('click', handleDetectionManualGreet);
     }
 
     // Microphone selection
@@ -747,9 +789,7 @@ function processStreamData(data) {
     }
 }
 
-function finalizeResponse() {
-    hideTypingIndicator();
-
+async function finalizeResponse() {
     // End LLM timing with token count
     endLLMTiming(currentTokenCount);
 
@@ -763,10 +803,12 @@ function finalizeResponse() {
             links: response.links || []
         };
 
-        addMessage('assistant', response.content, null, false, imageData);
+        // Wait for TTS to be ready before showing the message
+        try { await playTTS(response.content); } catch(e) { console.error('TTS error:', e); }
 
-        // Play TTS for the response
-        playTTS(response.content);
+        // Now hide typing and show message + audio together
+        hideTypingIndicator();
+        addMessage('assistant', response.content, null, false, imageData);
 
         // Save to state
         state.messages.push({
@@ -788,10 +830,12 @@ function finalizeResponse() {
         const messageContent = state.currentContent || 'Tiada respons.';
         const reasoning = state.currentReasoning || null;
 
-        addMessage('assistant', messageContent, reasoning, state.ragUsed);
+        // Wait for TTS to be ready before showing the message
+        try { await playTTS(messageContent); } catch(e) { console.error('TTS error:', e); }
 
-        // Play TTS for the response (pass text for gesture animation)
-        playTTS(messageContent);
+        // Now hide typing and show message + audio together
+        hideTypingIndicator();
+        addMessage('assistant', messageContent, reasoning, state.ragUsed);
 
         // Save to state
         state.messages.push({
@@ -2280,6 +2324,8 @@ function connectWebSocket(callback) {
             console.log('[Remote] WebSocket connected');
             state.remote.connected = true;
             callback();
+            // Re-register detection listeners on reconnect
+            setupDetectionSocketListeners();
         });
 
         state.remote.socket.on('disconnect', () => {
@@ -2561,6 +2607,343 @@ function handleDeviceDisconnected(data) {
 function handleDeviceList(data) {
     console.log('[Remote] Device list:', data.devices);
     state.remote.devices = data.devices;
+}
+
+// ========================================
+// HUMAN DETECTION
+// ========================================
+
+async function initializeDetection() {
+    // Check if detection is available on the server
+    try {
+        const response = await fetch('/detection/status');
+        const data = await response.json();
+
+        state.detection.available = data.available || false;
+        state.detection.running = data.running || false;
+        state.detection.autoGreet = data.auto_greet !== false;
+
+        if (data.available) {
+            // Show detection settings section
+            if (elements.detectionSettingsSection) {
+                elements.detectionSettingsSection.style.display = 'block';
+            }
+
+            // Update toggle state
+            if (elements.detectionToggle) {
+                elements.detectionToggle.checked = data.running;
+            }
+            if (elements.detectionAutoGreetToggle) {
+                elements.detectionAutoGreetToggle.checked = state.detection.autoGreet;
+            }
+
+            // Update UI based on running state
+            updateDetectionUI(data.running);
+
+            // Update stats if running
+            if (data.running) {
+                updateDetectionStats(data);
+            }
+
+            // Fetch available cameras
+            await fetchAvailableCameras();
+
+            console.log('[Detection] Available, running:', data.running);
+        } else {
+            console.log('[Detection] Not available on server');
+        }
+    } catch (e) {
+        console.log('[Detection] Could not check status:', e);
+    }
+
+    // Camera refresh button
+    if (elements.detectionCameraRefresh) {
+        elements.detectionCameraRefresh.addEventListener('click', fetchAvailableCameras);
+    }
+
+    // Setup SocketIO listeners for detection events
+    setupDetectionSocketListeners();
+}
+
+async function fetchAvailableCameras() {
+    if (!elements.detectionCameraSelect) return;
+
+    elements.detectionCameraSelect.innerHTML = '<option value="">Mengimbas kamera...</option>';
+
+    try {
+        const response = await fetch('/detection/cameras');
+        const data = await response.json();
+
+        elements.detectionCameraSelect.innerHTML = '';
+
+        if (data.cameras && data.cameras.length > 0) {
+            data.cameras.forEach(cam => {
+                const opt = document.createElement('option');
+                opt.value = cam.index;
+                opt.textContent = `${cam.name} (${cam.resolution})`;
+                elements.detectionCameraSelect.appendChild(opt);
+            });
+            console.log('[Detection] Found', data.cameras.length, 'camera(s)');
+        } else {
+            const opt = document.createElement('option');
+            opt.value = '';
+            opt.textContent = 'Tiada kamera dijumpai';
+            elements.detectionCameraSelect.appendChild(opt);
+        }
+    } catch (e) {
+        console.error('[Detection] Camera scan error:', e);
+        elements.detectionCameraSelect.innerHTML = '<option value="">Ralat mengimbas kamera</option>';
+    }
+
+    lucide.createIcons();
+}
+
+function setupDetectionSocketListeners() {
+    if (!state.remote.socket) return;
+
+    state.remote.socket.on('detection_person_enter', (data) => {
+        console.log('[Detection] Person entered:', data.count);
+        state.detection.personCount = data.count;
+        if (elements.detectionCurrentCount) {
+            elements.detectionCurrentCount.textContent = data.count;
+        }
+        addDetectionNotification('Pelawat dikesan!', `${data.count} orang memasuki kawasan`, 'enter');
+    });
+
+    state.remote.socket.on('detection_person_exit', (data) => {
+        console.log('[Detection] Person exited');
+        state.detection.personCount = 0;
+        if (elements.detectionCurrentCount) {
+            elements.detectionCurrentCount.textContent = '0';
+        }
+    });
+
+    state.remote.socket.on('detection_greeting_trigger', (data) => {
+        console.log('[Detection] Greeting triggered for', data.visitor_count, 'visitor(s)');
+
+        // Show greeting as chat message
+        const greetingText = data.message || 'Assalamualaikum dan selamat datang!';
+        addMessage('assistant', greetingText);
+
+        // Trigger TTS if enabled
+        if (state.ttsEnabled) {
+            playTTS(greetingText);
+        }
+    });
+}
+
+async function handleDetectionToggle(e) {
+    const enabled = e.target.checked;
+
+    if (enabled) {
+        // Start detection with selected camera
+        try {
+            const cameraIndex = elements.detectionCameraSelect
+                ? parseInt(elements.detectionCameraSelect.value) || 0
+                : 0;
+
+            const response = await fetch('/detection/start', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify({ camera_index: cameraIndex })
+            });
+            const data = await response.json();
+
+            if (data.status === 'started' || data.status === 'already_running') {
+                state.detection.running = true;
+                state.detection.enabled = true;
+                localStorage.setItem('uitm-detection-enabled', 'true');
+                updateDetectionUI(true);
+
+                // Start polling stats
+                startDetectionStatsPolling();
+
+                console.log('[Detection] Started on camera', data.camera_index);
+            } else {
+                console.error('[Detection] Failed to start:', data.error);
+                e.target.checked = false;
+                addDetectionNotification('Ralat', data.error || 'Gagal memulakan pengesan', 'error');
+            }
+        } catch (err) {
+            console.error('[Detection] Start error:', err);
+            e.target.checked = false;
+            addDetectionNotification('Ralat', 'Sambungan gagal', 'error');
+        }
+    } else {
+        // Stop detection
+        try {
+            await fetch('/detection/stop', { method: 'POST' });
+            state.detection.running = false;
+            state.detection.enabled = false;
+            localStorage.setItem('uitm-detection-enabled', 'false');
+            updateDetectionUI(false);
+            stopDetectionStatsPolling();
+            console.log('[Detection] Stopped');
+        } catch (err) {
+            console.error('[Detection] Stop error:', err);
+        }
+    }
+}
+
+function handleDetectionAutoGreetToggle(e) {
+    state.detection.autoGreet = e.target.checked;
+    console.log('[Detection] Auto-greet:', state.detection.autoGreet);
+
+    // Update server config
+    fetch('/detection/configure', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ auto_greet: state.detection.autoGreet })
+    }).catch(e => console.error('[Detection] Config error:', e));
+}
+
+async function handleDetectionManualGreet() {
+    const greetingText = 'Assalamualaikum dan selamat datang ke UiTM Kampus Tapah! Bagaimana saya boleh membantu anda hari ini?';
+
+    // Show message in chat immediately
+    addMessage('assistant', greetingText);
+
+    // Play TTS
+    playTTS(greetingText);
+
+    // Also notify backend (resets cooldown, etc.)
+    try {
+        await fetch('/detection/greet', { method: 'POST' });
+    } catch (err) {
+        console.error('[Detection] Manual greet error:', err);
+    }
+}
+
+function updateDetectionUI(running) {
+    // Disable camera selector while running
+    if (elements.detectionCameraSelect) {
+        elements.detectionCameraSelect.disabled = running;
+    }
+    if (elements.detectionCameraRefresh) {
+        elements.detectionCameraRefresh.disabled = running;
+    }
+
+    if (elements.detectionStatus) {
+        elements.detectionStatus.style.display = 'block';
+        const indicator = elements.detectionStatus.querySelector('.status-indicator');
+        const text = elements.detectionStatus.querySelector('.status-text');
+        if (indicator) {
+            indicator.className = 'status-indicator ' + (running ? 'connected' : 'disconnected');
+        }
+        if (text) {
+            text.textContent = running ? 'Aktif' : 'Tidak aktif';
+        }
+    }
+
+    if (elements.detectionStats) {
+        elements.detectionStats.style.display = running ? 'block' : 'none';
+    }
+
+    if (elements.detectionPreview) {
+        elements.detectionPreview.style.display = running ? 'block' : 'none';
+        if (running && elements.detectionStreamImg) {
+            // Use single-frame endpoint with polling for better compatibility
+            elements.detectionStreamImg.src = '/detection/frame?' + Date.now();
+        } else if (elements.detectionStreamImg) {
+            elements.detectionStreamImg.src = '';
+        }
+    }
+
+    if (elements.detectionAutoGreetContainer) {
+        elements.detectionAutoGreetContainer.style.display = running ? 'flex' : 'none';
+    }
+
+    if (elements.detectionGreetBtn) {
+        elements.detectionGreetBtn.style.display = running ? 'flex' : 'none';
+    }
+}
+
+function updateDetectionStats(data) {
+    if (elements.detectionCurrentCount) {
+        elements.detectionCurrentCount.textContent = data.person_count || data.stats?.current_count || 0;
+    }
+    if (elements.detectionSessionCount) {
+        elements.detectionSessionCount.textContent = data.stats?.session_count || 0;
+    }
+    if (elements.detectionFps) {
+        elements.detectionFps.textContent = data.fps || 0;
+    }
+}
+
+let detectionStatsInterval = null;
+let detectionFrameInterval = null;
+
+function startDetectionStatsPolling() {
+    stopDetectionStatsPolling();
+
+    // Poll stats every 2 seconds
+    detectionStatsInterval = setInterval(async () => {
+        if (!state.detection.running) return;
+        try {
+            const response = await fetch('/detection/status');
+            const data = await response.json();
+            if (data.running) {
+                updateDetectionStats(data);
+            } else {
+                state.detection.running = false;
+                updateDetectionUI(false);
+                stopDetectionStatsPolling();
+                if (elements.detectionToggle) {
+                    elements.detectionToggle.checked = false;
+                }
+            }
+        } catch (e) {
+            // Silent fail - network may be temporarily unavailable
+        }
+    }, 2000);
+
+    // Update preview frame at 1 FPS — only when settings modal is open
+    let frameLoading = false;
+    detectionFrameInterval = setInterval(() => {
+        if (!state.detection.running || !elements.detectionStreamImg) return;
+        if (!state.settings.isOpen) return; // Don't load when modal hidden
+        if (frameLoading) return; // Skip if previous request still pending
+        frameLoading = true;
+        const img = new Image();
+        img.onload = () => {
+            elements.detectionStreamImg.src = img.src;
+            frameLoading = false;
+        };
+        img.onerror = () => {
+            frameLoading = false;
+        };
+        img.src = '/detection/frame?' + Date.now();
+    }, 1000);
+}
+
+function stopDetectionStatsPolling() {
+    if (detectionStatsInterval) {
+        clearInterval(detectionStatsInterval);
+        detectionStatsInterval = null;
+    }
+    if (detectionFrameInterval) {
+        clearInterval(detectionFrameInterval);
+        detectionFrameInterval = null;
+    }
+}
+
+function addDetectionNotification(title, message, type) {
+    // Add a notification message to chat
+    const notificationHtml = `
+        <div class="message system-message detection-notification ${type}">
+            <div class="message-content">
+                <div class="notification-badge">
+                    <i data-lucide="${type === 'enter' ? 'user' : type === 'greet' ? 'hand' : 'alert-circle'}"></i>
+                    <span class="notification-title">${title}</span>
+                </div>
+                <span class="notification-text">${message}</span>
+            </div>
+        </div>
+    `;
+
+    elements.messagesArea.insertAdjacentHTML('beforeend', notificationHtml);
+    lucide.createIcons();
+    scrollToBottom();
 }
 
 // ========================================

@@ -206,12 +206,12 @@
                             </div>
                             <div class="message-text">
                                 <p>Assalamualaikum dan selamat datang! 👋</p>
-                                <p>Saya adalah AI Receptionist rasmi Universiti Teknologi MARA. Saya sedia membantu anda dengan maklumat mengenai:</p>
+                                <p>Saya adalah AI Receptionist rasmi Universiti Teknologi MARA. Sedia membantu anda dengan maklumat mengenai:</p>
                                 <ul>
                                     <li>Kemasukan dan pendaftaran</li>
                                     <li>Program pengajian</li>
                                     <li>Kemudahan kampus</li>
-                                    <li>Hubungan dan lokasi</li>
+                                    <li>Hubungi dan lokasi</li>
                                 </ul>
                                 <p>Bagaimana saya boleh membantu anda hari ini?</p>
                             </div>
@@ -428,6 +428,67 @@
                             Sambung
                         </button>
                     </div>
+                </div>
+
+                <!-- Human Detection Section -->
+                <div class="settings-section" id="detectionSettingsSection" style="display: none;">
+                    <h4><i data-lucide="eye"></i> Pengesan Pelawat</h4>
+                    <div class="detection-camera-select">
+                        <label for="detectionCameraSelect" class="detection-label">
+                            <i data-lucide="camera"></i> Kamera
+                        </label>
+                        <select id="detectionCameraSelect" class="camera-select">
+                            <option value="">Memuatkan kamera...</option>
+                        </select>
+                        <button class="camera-refresh-btn" id="detectionCameraRefresh" title="Semak semula kamera">
+                            <i data-lucide="refresh-cw"></i>
+                        </button>
+                    </div>
+                    <div class="detection-toggle-container">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="detectionToggle">
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div class="detection-info">
+                            <span class="detection-label">Kamera Pengesan</span>
+                            <span class="detection-desc">Kesan pelawat secara automatik</span>
+                        </div>
+                    </div>
+                    <div class="detection-status" id="detectionStatus" style="display: none;">
+                        <span class="status-indicator disconnected"></span>
+                        <span class="status-text">Tidak aktif</span>
+                    </div>
+                    <div class="detection-stats" id="detectionStats" style="display: none;">
+                        <div class="stat-item">
+                            <span class="stat-label">Pelawat Semasa:</span>
+                            <span class="stat-value" id="detectionCurrentCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">Jumlah Sesi:</span>
+                            <span class="stat-value" id="detectionSessionCount">0</span>
+                        </div>
+                        <div class="stat-item">
+                            <span class="stat-label">FPS:</span>
+                            <span class="stat-value" id="detectionFps">0</span>
+                        </div>
+                    </div>
+                    <div class="detection-preview" id="detectionPreview" style="display: none;">
+                        <img id="detectionStreamImg" src="" alt="Detection Feed" />
+                    </div>
+                    <div class="detection-auto-greet-container" id="detectionAutoGreetContainer" style="display: none;">
+                        <label class="toggle-switch">
+                            <input type="checkbox" id="detectionAutoGreetToggle" checked>
+                            <span class="toggle-slider"></span>
+                        </label>
+                        <div class="detection-info">
+                            <span class="detection-label">Salam Automatik</span>
+                            <span class="detection-desc">Ucap salam bila pelawat dikesan</span>
+                        </div>
+                    </div>
+                    <button class="detection-greet-btn" id="detectionGreetBtn" style="display: none;">
+                        <i data-lucide="hand"></i>
+                        Hantar Salam Manual
+                    </button>
                 </div>
 
                 <!-- Model Info Section -->
